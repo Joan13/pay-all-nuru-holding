@@ -1,29 +1,63 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import StatusBarApp from "@/src/components/app/StatusBar";
+import LanguageInitializer from "@/src/lang/LanguageInitializer";
+import store, { persistor } from "@/src/store/app/store";
+import { Stack } from "expo-router";
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/es/integration/react';
+// Initialize i18next before app renders
+import '@/src/lang/i18nextConfig';
+// import { TouchableOpacity } from "react-native";
+// TouchableOpacity.defaultProps = { activeOpacity: 0.8 };
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+// SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
+  // const rootNavigationState = useRootNavigationState();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <LanguageInitializer />
+        <StatusBarApp />
+        <Stack
+          screenOptions={{
+            headerShown: true,
+            headerBackTitleVisible: false,
+          }}
+        >
+          <Stack.Screen
+            name="index"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen name="Signin" options={{ headerShown: false }} />
+          <Stack.Screen name="PowerPay" options={{ headerShown: false }} />
+          <Stack.Screen name="History" options={{ headerShown: false }} />
+          <Stack.Screen name="Onboarding" options={{ headerShown: false }} />
+          <Stack.Screen name="Map" options={{ headerShown: false }} />
+          <Stack.Screen 
+            name="ConfirmRide" 
+            options={{ 
+              headerShown: true,
+            }} 
+          />
+          <Stack.Screen 
+            name="Rides" 
+            options={{ 
+              headerShown: true,
+            }} 
+          />
+          <Stack.Screen 
+            name="Ride" 
+            options={{ 
+              headerShown: true,
+            }} 
+          />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </PersistGate>
+    </Provider>
   );
 }
