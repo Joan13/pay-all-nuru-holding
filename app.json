@@ -9,7 +9,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.powerpay.app",
+      "bundleIdentifier": "com.payallapp",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show your position on the map.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show your position on the map."
@@ -19,10 +19,10 @@
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#000000",
-        "package": "com.powerpay.app"
+        "package": "com.payallapp"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.powerpay.app"
+      "package": "com.payallapp"
     },
     "web": {
       "bundler": "metro",

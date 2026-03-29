@@ -1,4 +1,4 @@
-package com.powerpay.app
+package com.payallapp
 //import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
