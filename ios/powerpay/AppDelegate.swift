@@ -1,6 +1,7 @@
 import Expo
 import React
 import ReactAppDependencyProvider
+import RNBootSplash
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
@@ -50,10 +51,26 @@ public class AppDelegate: ExpoAppDelegate {
     let result = RCTLinkingManager.application(application, continue: userActivity, restorationHandler: restorationHandler)
     return super.application(application, continue: userActivity, restorationHandler: restorationHandler) || result
   }
+
+  //   override func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey : Any] = [:]) -> Bool {
+  //   // Add any other URL handlers you're using (e.g. Facebook SDK)
+  //   return ApplicationDelegate.shared.application(app, open: url, options: options) ||
+  //          GIDSignIn.sharedInstance.handle(url)
+  // }
 }
 
 class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {
   // Extension point for config-plugins
+
+  public override func customize(_ rootView: UIView) {
+    // Prevent any "blank" frame between the iOS launch screen and the JS-rendered UI.
+    rootView.backgroundColor = .black
+
+    // Attach the BootSplash loading view as early as possible.
+    RNBootSplash.initWithStoryboard("BootSplash", rootView: rootView)
+
+    super.customize(rootView)
+  }
 
   override func sourceURL(for bridge: RCTBridge) -> URL? {
     // needed to return the correct URL for expo-dev-client.
