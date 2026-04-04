@@ -316,6 +316,75 @@ export default function Settings() {
             </Pressable>
           )}
 
+          {isDriver && (
+            <Pressable 
+              style={({ pressed }) => [
+                styles.settingItem, 
+                { 
+                  backgroundColor: themeColors.background, 
+                  borderColor: themeColors.border,
+                  opacity: pressed ? 0.7 : 1
+                }
+              ]}
+              onPress={() => router.push('/DriverRates')}
+            >
+              <View style={styles.settingLeft}>
+                <IconApp 
+                  pack="FI" 
+                  name="star" 
+                  size={24} 
+                  color={themeColors.text} 
+                  styles={{ marginRight: 15 }}
+                />
+                <AppText 
+                  i18nKey="settings.viewRates"
+                  size="normal"
+                />
+              </View>
+              <IconApp 
+                pack="FI" 
+                name="chevron-right" 
+                size={20} 
+                color={themeColors.gray} 
+                styles={{}}
+              />
+            </Pressable>
+          )}
+
+          {/* Fidelity Points */}
+          <Pressable 
+            style={({ pressed }) => [
+              styles.settingItem, 
+              { 
+                backgroundColor: themeColors.background, 
+                borderColor: themeColors.border,
+                opacity: pressed ? 0.7 : 1
+              }
+            ]}
+            onPress={() => router.push('/FidelityPoints')}
+          >
+            <View style={styles.settingLeft}>
+              <IconApp 
+                pack="FI" 
+                name="award" 
+                size={24} 
+                color={themeColors.text} 
+                styles={{ marginRight: 15 }}
+              />
+              <AppText 
+                i18nKey="settings.fidelityPoints"
+                size="normal"
+              />
+            </View>
+            <IconApp 
+              pack="FI" 
+              name="chevron-right" 
+              size={20} 
+              color={themeColors.gray} 
+              styles={{}}
+            />
+          </Pressable>
+
           {/* Delete Account */}
           <Pressable 
             style={({ pressed }) => [

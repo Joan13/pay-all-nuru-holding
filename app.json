@@ -17,10 +17,10 @@
       }
     },
     "android": {
+      "icon": "./src/assets/images/icon-android.png",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
-        "backgroundColor": "#000000",
-        "package": "com.payallapp"
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.payallapp"

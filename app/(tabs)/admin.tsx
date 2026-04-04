@@ -20,6 +20,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  TouchableOpacity,
   View
 } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
@@ -244,14 +245,14 @@ export default function Admin() {
               : 'rgba(255, 255, 255, 0.1)',
           },
         ]}>
-          <Pressable
+          <TouchableOpacity
             onPress={() => setActiveTab('overview')}
-            style={({ pressed }) => [
+            activeOpacity={0.7}
+            style={[
               styles.tab,
               activeTab === 'overview' && {
                 backgroundColor: themeColors.primary,
               },
-              { opacity: pressed ? 0.7 : 1 },
             ]}
           >
             <AppText
@@ -262,15 +263,15 @@ export default function Admin() {
                 color: activeTab === 'overview' ? '#FFFFFF' : themeColors.text,
               }}
             />
-          </Pressable>
-          <Pressable
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => setActiveTab('rides')}
-            style={({ pressed }) => [
+            activeOpacity={0.7}
+            style={[
               styles.tab,
               activeTab === 'rides' && {
                 backgroundColor: themeColors.primary,
               },
-              { opacity: pressed ? 0.7 : 1 },
             ]}
           >
             <AppText
@@ -281,15 +282,15 @@ export default function Admin() {
                 color: activeTab === 'rides' ? '#FFFFFF' : themeColors.text,
               }}
             />
-          </Pressable>
-          <Pressable
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => setActiveTab('users')}
-            style={({ pressed }) => [
+            activeOpacity={0.7}
+            style={[
               styles.tab,
               activeTab === 'users' && {
                 backgroundColor: themeColors.primary,
               },
-              { opacity: pressed ? 0.7 : 1 },
             ]}
           >
             <AppText
@@ -300,7 +301,7 @@ export default function Admin() {
                 color: activeTab === 'users' ? '#FFFFFF' : themeColors.text,
               }}
             />
-          </Pressable>
+          </TouchableOpacity>
         </View>
 
 

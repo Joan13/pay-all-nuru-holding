@@ -980,8 +980,11 @@ export default function Home() {
   if (loading) {
     return (
       <AppView style={styles.container}>
-        
-        <StatusBar translucent barStyle={theme === 'light' ? 'dark-content' : 'light-content'} />
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+        />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColors.primary} />
           <AppText 
@@ -996,8 +999,11 @@ export default function Home() {
 
   return (
     <AppView style={styles.container}>
-      {/* <StatusBar translucent barStyle={theme === 'light' ? 'dark-content' : 'light-content'} /> */} 
-      <StatusBar translucent />  
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
+      />
       {/* Map View */}
       <View style={styles.mapContainer}>
         {renderMap()}

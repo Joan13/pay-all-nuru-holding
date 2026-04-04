@@ -15,6 +15,8 @@
   "close": "Close",
   "ok": "OK",
   "retry": "Retry",
+  "success": "Success",
+  "save": "Save",
   "error": {
     "signInCancelled": "Sign In Cancelled",
     "signInCancelledDescription": "You cancelled the sign-in process.",
@@ -140,7 +142,13 @@
       "contactDriver": "Contact Driver",
       "contactUser": "Contact User",
       "call": "Call",
-      "noContactInfo": "No contact information available"
+      "noContactInfo": "No contact information available",
+      "rateDriver": "Rate your driver",
+      "rateDescriptionPlaceholder": "Share details about your experience (optional)",
+      "submitRate": "Submit rating",
+      "invalidRate": "Please select a rating between 1 and 5.",
+      "rateSaved": "Your rating has been submitted.",
+      "rateFailed": "Failed to submit rating."
     },
   "settings": {
     "title": "Settings",
@@ -163,7 +171,9 @@
     "deleteAccountMessage": "Are you sure you want to delete your account? This action cannot be undone.",
     "deleteAccountConfirm": "Delete",
     "deleteAccountErrorTitle": "Delete account failed",
-    "deleteAccountError": "Unable to delete your account. Please try again later."
+    "deleteAccountError": "Unable to delete your account. Please try again later.",
+    "viewRates": "My Ratings",
+    "fidelityPoints": "Fidelity Points"
   },
   "updateUser": {
     "title": "Edit Profile",
@@ -241,6 +251,24 @@
     "completed": "Completed",
     "cancelled": "Cancelled",
     "unknown": "Unknown"
+  },
+  "rate": {
+    "title": "Rating Details",
+    "description": "Description",
+    "noRates": "No ratings yet"
+  },
+  "fidelityPoints": {
+    "totalLabel": "Total points",
+    "noPoints": "No points yet",
+    "startBooking": "Start booking rides to earn fidelity points and redeem them on future trips!",
+    "detailTitle": "Points Detail",
+    "pointsUnit": "pts",
+    "active": "Active",
+    "inactive": "Inactive",
+    "rideId": "Ride",
+    "userId": "User",
+    "earnedOn": "Earned on",
+    "updatedOn": "Updated on"
   },
   "admin": {
     "title": "Admin Dashboard",

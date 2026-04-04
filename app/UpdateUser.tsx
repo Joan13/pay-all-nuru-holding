@@ -2,6 +2,7 @@ import AppButton from '@/src/components/app/AppButton';
 import IconApp from '@/src/components/app/IconApp';
 import ModalApp from '@/src/components/app/ModalApp';
 import StatusBarApp from '@/src/components/app/StatusBar';
+import SwitchApp from '@/src/components/app/SwitchApp';
 import AppText from '@/src/components/app/Text';
 import { AppView } from '@/src/components/app/ViewApp';
 import { remote_url } from '@/src/constants/Constants';
@@ -15,15 +16,15 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -49,11 +50,9 @@ export default function UpdateUser() {
   const [city, setCity] = useState(userData?.city || '');
   const [state, setState] = useState(userData?.state || '');
   const [address, setAddress] = useState(userData?.address || '');
-  // Initialize account type and admin flag, ensuring they're synced
-  const initialAccountType = userData?.account_type ?? 0;
-  const initialIsAdmin = userData?.is_admin ?? (initialAccountType === 2);
-  const [accountType, setAccountType] = useState(initialAccountType);
-  const [isAdminFlag, setIsAdminFlag] = useState(initialIsAdmin);
+  // account_type (0=customer, 1=driver) and is_admin are independent
+  const [accountType, setAccountType] = useState(userData?.account_type ?? 0);
+  const [isAdminFlag, setIsAdminFlag] = useState(userData?.is_admin ?? false);
   const [carModel, setCarModel] = useState(userData?.car_model || '');
   const [carCondition, setCarCondition] = useState(userData?.car_condition ?? 0);
   const [licensePlate, setLicensePlate] = useState(userData?.license_plate || '');
@@ -75,6 +74,10 @@ export default function UpdateUser() {
   useEffect(() => {
     navigation.setOptions({
       title: t('updateUser.title') || 'Edit Profile',
+      // iOS-only: set a friendly back button label
+      ...(Platform.OS === 'ios'
+        ? { headerBackTitle: t('settings.title') || 'Settings' }
+        : {}),
     });
   }, [navigation, t]);
 
@@ -105,7 +108,7 @@ export default function UpdateUser() {
         setState(fetchedUser.state || '');
         setAddress(fetchedUser.address || '');
         setAccountType(fetchedUser.account_type ?? 0);
-        setIsAdminFlag(fetchedUser.is_admin ?? (fetchedUser.account_type === 2));
+        setIsAdminFlag(fetchedUser.is_admin ?? false);
         setCarModel(fetchedUser.car_model || '');
         setCarCondition(fetchedUser.car_condition ?? 0);
         setLicensePlate(fetchedUser.license_plate || '');
@@ -329,31 +332,13 @@ export default function UpdateUser() {
                   <AppText size="normal" bold text={t('updateUser.makeDriver') || 'Make Driver'} styles={{ marginBottom: 4, color: themeColors.text }} />
                   <AppText size="small" text={t('updateUser.driverDescription') || 'Enable driver functionality for this user'} styles={{ color: themeColors.gray }} />
                 </View>
-                <Pressable
-                  onPress={() => {
-                    const newAccountType = accountType === 1 ? 0 : 1;
-                    setAccountType(newAccountType);
-                    // If removing driver status, also remove admin
-                    if (newAccountType !== 1 && isAdminFlag) {
-                      setIsAdminFlag(false);
-                    }
+                <SwitchApp
+                  value={accountType === 1}
+                  color={themeColors.primary}
+                  onPress={(next: boolean) => {
+                    setAccountType(next ? 1 : 0);
                   }}
-                  style={({ pressed }) => [
-                    styles.toggleButton,
-                    {
-                      backgroundColor: accountType === 1 ? themeColors.primary : (theme === 'light' ? '#E5E5E5' : '#3A3A3C'),
-                      opacity: pressed ? 0.7 : 1,
-                    }
-                  ]}
-                >
-                  <View style={[
-                    styles.toggleSwitch,
-                    {
-                      backgroundColor: '#FFFFFF',
-                      transform: [{ translateX: accountType === 1 ? 20 : 0 }]
-                    }
-                  ]} />
-                </Pressable>
+                />
               </View>
             </View>
 
@@ -364,34 +349,13 @@ export default function UpdateUser() {
                   <AppText size="normal" bold text={t('updateUser.makeAdmin') || 'Make Admin'} styles={{ marginBottom: 4, color: themeColors.text }} />
                   <AppText size="small" text={t('updateUser.adminDescription') || 'Grant admin privileges to this user'} styles={{ color: themeColors.gray }} />
                 </View>
-                <Pressable
-                  onPress={() => {
-                    const newIsAdmin = !isAdminFlag;
-                    setIsAdminFlag(newIsAdmin);
-                    // If making admin, set account_type to 2
-                    if (newIsAdmin) {
-                      setAccountType(2);
-                    } else if (accountType === 2) {
-                      // If removing admin, set to customer (0)
-                      setAccountType(0);
-                    }
+                <SwitchApp
+                  value={isAdminFlag}
+                  color={themeColors.primary}
+                  onPress={(next: boolean) => {
+                    setIsAdminFlag(next);
                   }}
-                  style={({ pressed }) => [
-                    styles.toggleButton,
-                    {
-                      backgroundColor: isAdminFlag ? themeColors.primary : (theme === 'light' ? '#E5E5E5' : '#3A3A3C'),
-                      opacity: pressed ? 0.7 : 1,
-                    }
-                  ]}
-                >
-                  <View style={[
-                    styles.toggleSwitch,
-                    {
-                      backgroundColor: '#FFFFFF',
-                      transform: [{ translateX: isAdminFlag ? 20 : 0 }]
-                    }
-                  ]} />
-                </Pressable>
+                />
               </View>
             </View>
           </View>

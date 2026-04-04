@@ -4,7 +4,7 @@ import { useAppSelector } from '@/src/store/app/hooks';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform } from 'react-native';
+import { Platform, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabsLayout() {
@@ -39,6 +39,14 @@ export default function TabsLayout() {
           fontSize: 12,
           fontWeight: '600',
         },
+        // Use TouchableOpacity instead of the default Android ripple button
+        // to avoid the gray background when a tab is pressed
+        tabBarButton: (props) => (
+          <TouchableOpacity
+            {...props}
+            activeOpacity={0.7}
+          />
+        ),
       }}
     >
       <Tabs.Screen

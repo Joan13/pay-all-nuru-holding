@@ -22,12 +22,8 @@
         <!--    <item name="android:navigationBarColor">@android:color/transparent</item>-->
         <!--  Set the splash screen background, animated icon, and animation duration.  -->
         <item name="bootSplashBackground">#000000</item>
-        <!--    <item name="android:windowDisablePreview">true</item>-->
-        <!--  Use windowSplashScreenAnimatedIcon to add either a drawable or an
-                     animated drawable. One of these is required.  -->
-        <item name="bootSplashLogo">@mipmap/ic_launcher</item>
-        <!--      <item name="logoDescription">@mipmap/pp1</item>-->
-        <item name="bootSplashBrand">@drawable/nuru_holding</item>
+        <!--  White PA logo on black background, centered at 100×100 dp  -->
+        <item name="bootSplashLogo">@drawable/bootsplash_logo</item>
         <!--  Required for animated icons  -->
         <!--    <item name="windowSplashScreenAnimationDuration">200</item>-->
         <!--  Set the theme of the Activity that directly follows your splash screen.  -->

@@ -133,7 +133,7 @@ export default function History() {
     );
   }
 
-  const showSearch = rides.length > 1;
+  const showSearch = rides.length > 0;
 
   return (
     <AppView style={styles.container}>

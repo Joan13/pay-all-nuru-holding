@@ -15,6 +15,8 @@
   "close": "Fermer",
   "ok": "OK",
   "retry": "Réessayer",
+  "success": "Succès",
+  "save": "Enregistrer",
   "error": {
     "signInCancelled": "Connexion Annulée",
     "signInCancelledDescription": "Vous avez annulé le processus de connexion.",
@@ -140,7 +142,13 @@
       "contactDriver": "Contacter le Chauffeur",
       "contactUser": "Contacter l'Utilisateur",
       "call": "Appeler",
-      "noContactInfo": "Aucune information de contact disponible"
+      "noContactInfo": "Aucune information de contact disponible",
+      "rateDriver": "Évaluer votre chauffeur",
+      "rateDescriptionPlaceholder": "Partagez les détails de votre expérience (facultatif)",
+      "submitRate": "Soumettre l'évaluation",
+      "invalidRate": "Veuillez sélectionner une note entre 1 et 5.",
+      "rateSaved": "Votre évaluation a été soumise.",
+      "rateFailed": "Échec de la soumission de l'évaluation."
     },
   "settings": {
     "title": "Paramètres",
@@ -163,7 +171,9 @@
     "deleteAccountMessage": "Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.",
     "deleteAccountConfirm": "Supprimer",
     "deleteAccountErrorTitle": "Échec de la suppression du compte",
-    "deleteAccountError": "Impossible de supprimer votre compte. Veuillez réessayer plus tard."
+    "deleteAccountError": "Impossible de supprimer votre compte. Veuillez réessayer plus tard.",
+    "viewRates": "Mes Évaluations",
+    "fidelityPoints": "Points de Fidélité"
   },
   "updateUser": {
     "title": "Modifier le Profil",
@@ -241,6 +251,24 @@
     "completed": "Terminée",
     "cancelled": "Annulée",
     "unknown": "Inconnu"
+  },
+  "rate": {
+    "title": "Détails de l'Évaluation",
+    "description": "Description",
+    "noRates": "Aucune évaluation pour l'instant"
+  },
+  "fidelityPoints": {
+    "totalLabel": "Total des points",
+    "noPoints": "Aucun point pour l'instant",
+    "startBooking": "Commencez à réserver des courses pour gagner des points de fidélité et les utiliser lors de vos prochains trajets !",
+    "detailTitle": "Détails du Point",
+    "pointsUnit": "pts",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "rideId": "Course",
+    "userId": "Utilisateur",
+    "earnedOn": "Obtenu le",
+    "updatedOn": "Mis à jour le"
   },
   "admin": {
     "title": "Tableau de Bord Admin",

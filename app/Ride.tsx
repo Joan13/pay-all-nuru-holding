@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,6 +47,9 @@ export default function Ride() {
   const [priceInput, setPriceInput] = useState('');
   const [currencyInput, setCurrencyInput] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<number | null>(null);
+  const [driverRate, setDriverRate] = useState<number>(0);
+  const [driverRateDesc, setDriverRateDesc] = useState<string>('');
+  const [submittingRate, setSubmittingRate] = useState<boolean>(false);
   const [driverInfo, setDriverInfo] = useState<TUserData | null>(null);
   const [userInfo, setUserInfo] = useState<TUserData | null>(null);
   const [loadingContact, setLoadingContact] = useState(false);
@@ -53,8 +57,8 @@ export default function Ride() {
   const rideId = params.rideId as string;
   const isDriver = userData?.account_type === 1;
   const isAdmin = userData?.account_type === 2 || userData?.is_admin === true;
-  const isRideOwner = ride && (ride.user_id === userData?._id);
-  const isRideDriver = ride && (ride.driver_id === userData?._id);
+  const isRideOwner = !!ride && (ride.user_id === userData?._id);
+  const isRideDriver = !!ride && (ride.driver_id === userData?._id);
 
   const updateRide = useCallback(async (updates: Partial<TRide>) => {
     if (!ride || !rideId) return false;
@@ -102,9 +106,39 @@ export default function Ride() {
   }, [updateRide, router, dispatch]);
 
   useEffect(() => {
+    const getPreviousRouteName = (): string | undefined => {
+      try {
+        // @ts-ignore - react-navigation types differ under expo-router
+        const state = navigation.getState?.();
+        const routes = state?.routes ?? [];
+        const index = state?.index ?? -1;
+        if (routes.length > 1 && index > 0) {
+          // previous route in the current navigator
+          return routes[index - 1]?.name as string | undefined;
+        }
+      } catch {
+        // ignore
+      }
+      return undefined;
+    };
+
     const canCancel = isRideOwner && ride && (ride.ride_status === 0 || ride.ride_status === 1);
+    const prevName = getPreviousRouteName();
+    const cameFromTabsOrHistory =
+      typeof prevName === 'string' &&
+      (/\(tabs\)/i.test(prevName) || /history/i.test(prevName));
+
     navigation.setOptions({
       title: t('ride.title') || 'Ride Details',
+      // iOS-only: customize back button label
+      ...(Platform.OS === 'ios'
+        ? {
+            headerBackTitle:
+              cameFromTabsOrHistory
+                ? (t('history.title') || t('tabs.history') || 'Ride history')
+                : undefined,
+          }
+        : {}),
       headerRight: canCancel ? () => (
         <Pressable
           onPress={handleCancelRide}
@@ -292,7 +326,7 @@ export default function Ride() {
   };
 
   const handleStatusChange = async (newStatus: number) => {
-    if (newStatus !== ride.ride_status) {
+    if (ride && newStatus !== ride.ride_status) {
       await updateRide({ ride_status: newStatus });
     }
   };
@@ -312,7 +346,7 @@ export default function Ride() {
   const handleSetPrice = async () => {
     const price = parseFloat(priceInput);
     if (isNaN(price) || price <= 0) {
-      Alert.alert(t('error') || 'Error', t('ride.invalidPrice') || 'Please enter a valid price.');
+      Alert.alert(t('error') || 'Error', t('ride.invalidPrice'));
       return;
     }
     
@@ -328,24 +362,55 @@ export default function Ride() {
     }
   };
 
+  const submitDriverRate = useCallback(async () => {
+    if (!userData?._id || !ride || !ride.driver_id) return;
+    if (driverRate < 1 || driverRate > 5) {
+      Alert.alert(t('error') || 'Error', t('ride.invalidRate') || 'Please select a rating between 1 and 5.');
+      return;
+    }
+    try {
+      setSubmittingRate(true);
+      const url = `${remote_url}/payall/API/add_driver_rate`;
+      const payload = {
+        user_id: userData._id,
+        ride_id: ride._id,
+        driver_id: ride.driver_id,
+        description: driverRateDesc,
+        rate: driverRate,
+        rate_active: 1,
+      };
+      const apiResponse = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (apiResponse.data && apiResponse.data.success === '1') {
+        Alert.alert(t('success') || 'Success', t('ride.rateSaved') || 'Your rating has been submitted.');
+      } else {
+        Alert.alert(t('error') || 'Error', apiResponse.data?.error || (t('ride.rateFailed') || 'Failed to submit rating.'));
+      }
+    } catch (error: any) {
+      console.error('Add Driver Rate Error:', error);
+      Alert.alert(t('error') || 'Error', t('ride.rateFailed') || 'Failed to submit rating.');
+    } finally {
+      setSubmittingRate(false);
+    }
+  }, [userData?._id, ride, driverRate, driverRateDesc, t]);
+
   const formatCurrency = (amount: number, currency: number): string => {
     // 0 = FC (Franc Congolais), can be extended for other currencies
     const currencySymbol = currency === 0 ? 'FC' : 'USD';
     return `${amount} ${currencySymbol}`;
   };
 
-  const getCurrencyName = (currency: number): string => {
-    return currency === 0 ? 'FC' : 'USD';
-  };
+  // Removed unused getCurrencyName to satisfy linter
 
   const getStatusText = (status: number): string => {
     switch (status) {
-      case 0: return t('rides.pending') || 'Pending';
-      case 1: return t('rides.accepted') || 'Accepted';
-      case 2: return t('rides.inProgress') || 'In Progress';
-      case 3: return t('rides.completed') || 'Completed';
-      case 4: return t('rides.cancelled') || 'Cancelled';
-      default: return t('rides.unknown') || 'Unknown';
+      case 0: return t('rides.pending');
+      case 1: return t('rides.accepted');
+      case 2: return t('rides.inProgress');
+      case 3: return t('rides.completed');
+      case 4: return t('rides.cancelled');
+      default: return t('rides.unknown');
     }
   };
 
@@ -418,9 +483,11 @@ export default function Ride() {
   const canCancelAccept = isRideDriver && ride.ride_status === 1; // Driver can unaccept if status is accepted
   const canStartRide = isRideDriver && ride.ride_status === 1; // Driver can start if accepted
   const canFinishRide = isRideDriver && ride.ride_status === 2; // Driver can finish if in progress
-  // Driver can change status after acceptance (status 1 or 2), but not if completed (3) or cancelled (4)
-  // Owner can also change status if ride is still pending (0)
-  const canChangeStatus = ((isRideDriver && (ride.ride_status === 1 || ride.ride_status === 2)) || (isRideOwner && ride.ride_status === 0) || isAdmin) && ride.ride_status !== 4 && ride.ride_status !== 3;
+  const rideStatus = ride?.ride_status ?? -1;
+  // Only allow manual status changes while pending (0) by owner/admin.
+  // For accepted (1): show only Start Ride and Cancel Accept.
+  // For in progress (2): show only Completed.
+  const canChangeStatus = (rideStatus === 0) && (isRideOwner || isAdmin);
   const canChangePayment = isRideOwner && ride.ride_status === 0; // Only when pending, not after acceptance
   // Driver can set price if ride is manual (ride_price is 0 or needs to be set) but only before accepting (status 0)
   // After acceptance, drivers cannot edit any ride details
@@ -429,6 +496,7 @@ export default function Ride() {
   // Only owner can edit price and currency when ride is still pending (status 0)
   // Driver can only edit price/currency before accepting the ride (status 0)
   const canEditPriceCurrency = (isRideOwner || isRideDriver) && ride.ride_status === 0;
+  const canRateDriver = isRideOwner && ride.ride_status === 3 && !!ride.driver_id; // after completed
 
   return (
     <AppView style={styles.container}>
@@ -833,6 +901,74 @@ export default function Ride() {
                 styles={{ color: themeColors.primary }}
               />
             </View>
+          </View>
+        )}
+
+        {/* Driver Rating (after completion by ride owner) */}
+        {canRateDriver && (
+          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+            <AppText size="normal" bold text={t('ride.rateDriver') || 'Rate your driver'} styles={{ marginBottom: 12, color: themeColors.text }} />
+            <View style={styles.starsRow}>
+              {[1,2,3,4,5].map((n) => (
+                <Pressable
+                  key={n}
+                  onPress={() => setDriverRate(n)}
+                  style={({ pressed }) => [
+                    styles.starButton,
+                    { opacity: pressed ? 0.7 : 1 }
+                  ]}
+                >
+                  <IconApp
+                    pack="FI"
+                    name="star"
+                    size={22}
+                    color={n <= driverRate ? '#FFD700' : themeColors.gray}
+                  />
+                </Pressable>
+              ))}
+            </View>
+            <View style={{ marginTop: 12 }}>
+              <TextInput
+                value={driverRateDesc}
+                onChangeText={setDriverRateDesc}
+                placeholder={t('ride.rateDescriptionPlaceholder') || 'Share details about your experience (optional)'}
+                placeholderTextColor={themeColors.gray}
+                multiline
+                numberOfLines={4}
+                style={[
+                  styles.priceInput,
+                  {
+                    color: themeColors.text,
+                    backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
+                    borderColor: themeColors.border,
+                    minHeight: 100,
+                    textAlignVertical: 'top'
+                  }
+                ]}
+              />
+            </View>
+            <Pressable
+              onPress={submitDriverRate}
+              disabled={submittingRate}
+              style={({ pressed }) => [
+                styles.toolbarButtonWithText,
+                { 
+                  backgroundColor: themeColors.primary,
+                  alignSelf: 'flex-start',
+                  marginTop: 12,
+                  opacity: pressed || submittingRate ? 0.7 : 1
+                }
+              ]}
+            >
+              {submittingRate ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <IconApp pack="FI" name="send" size={16} color="#FFFFFF" />
+                  <AppText size="small" bold text={t('ride.submitRate') || 'Submit rating'} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
+                </>
+              )}
+            </Pressable>
           </View>
         )}
       </ScrollView>
@@ -1413,6 +1549,18 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     marginBottom: 8,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  starButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
