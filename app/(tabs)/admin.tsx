@@ -14,14 +14,14 @@ import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +44,7 @@ export default function Admin() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalError, setModalError] = useState<{ titleKey: string; descriptionKey: string } | null>(null);
+  const [searchBarHeight, setSearchBarHeight] = useState(52);
 
   useEffect(() => {
     navigation.setOptions({
@@ -164,20 +165,30 @@ export default function Admin() {
     (user.phone_numbers && user.phone_numbers.some(phone => phone.includes(searchQuery)))
   );
 
+  const SEARCH_BAR_TOP = 15;
+  const GAP_BELOW_SEARCH = 10;
+  const showSearchBar = activeTab === 'rides' || activeTab === 'users';
+  const scrollPaddingTop = showSearchBar
+    ? SEARCH_BAR_TOP + searchBarHeight + GAP_BELOW_SEARCH
+    : 10;
+
   return (
     <AppView style={styles.container}>
       <StatusBarApp />
 
       {/* Floating Search Bar */}
-      {(activeTab === 'rides' || activeTab === 'users') && (
-        <AppView style={[
+      {showSearchBar && (
+        <AppView
+          onLayout={(e) => setSearchBarHeight(e.nativeEvent.layout.height)}
+          style={[
           styles.searchContainer,
           {
-            top: 15,
+            top: SEARCH_BAR_TOP,
             backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
             borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.1)',
           }
-        ]}>
+        ]}
+        >
           <IconApp 
             pack="FI" 
             name="search" 
@@ -221,11 +232,11 @@ export default function Admin() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
-          styles.scrollContent, 
-          { 
+          styles.scrollContent,
+          {
             paddingBottom: 20 + insets.bottom,
-            paddingTop: (activeTab === 'rides' || activeTab === 'users') ? 50 + insets.top : 10,
-          }
+            paddingTop: scrollPaddingTop,
+          },
         ]}
         refreshControl={
           <RefreshControl
@@ -239,9 +250,10 @@ export default function Admin() {
         {/* Tabs */}
         <View style={[
           styles.tabContainer,
+          showSearchBar && styles.tabContainerBelowSearch,
           {
-            backgroundColor: theme === 'light' 
-              ? 'rgba(0, 0, 0, 0.05)' 
+            backgroundColor: theme === 'light'
+              ? 'rgba(0, 0, 0, 0.05)'
               : 'rgba(255, 255, 255, 0.1)',
           },
         ]}>
@@ -689,6 +701,9 @@ const styles = StyleSheet.create({
     padding: 4,
     marginTop: 20,
     marginBottom: 16,
+  },
+  tabContainerBelowSearch: {
+    marginTop: 0,
   },
   tab: {
     flex: 1,

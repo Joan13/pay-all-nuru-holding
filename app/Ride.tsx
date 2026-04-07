@@ -172,12 +172,12 @@ export default function Ride() {
           router.back();
         }
       } else {
-        Alert.alert(t('error') || 'Error', t('ride.fetchError') || 'Failed to fetch ride details.');
+        Alert.alert(t('networkError') || 'Error', t('ride.fetchError') || 'Failed to fetch ride details.');
         router.back();
       }
     } catch (error: any) {
       console.error('Error fetching ride:', error);
-      Alert.alert(t('error') || 'Error', t('ride.fetchError') || 'Failed to fetch ride details.');
+      Alert.alert(t('networkError') || 'Error', t('ride.fetchError') || 'Failed to fetch ride details.');
       router.back();
     } finally {
       setLoading(false);
@@ -251,11 +251,11 @@ export default function Ride() {
       if (canOpen) {
         await Linking.openURL(phoneUrl);
       } else {
-        Alert.alert(t('error') || 'Error', t('ride.noContactInfo') || 'Cannot make phone call.');
+        Alert.alert(t('error.networkError') || 'Error', t('ride.noContactInfo') || 'Cannot make phone call.');
       }
     } catch (error) {
       console.error('Error opening phone:', error);
-      Alert.alert(t('error') || 'Error', t('ride.noContactInfo') || 'Cannot make phone call.');
+      Alert.alert(t('error.networkError') || 'Error', t('ride.noContactInfo') || 'Cannot make phone call.');
     }
   };
 

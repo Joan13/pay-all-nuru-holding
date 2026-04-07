@@ -34,6 +34,7 @@ export default function Settings() {
   const persistedLanguage = useAppSelector(state => state.persisted_app.language);
   const currentLanguage = persistedLanguage || i18n.language || LangCode.fr;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({
@@ -67,22 +68,33 @@ export default function Settings() {
     setRefreshing(false);
   }, [fetchUserData]);
 
-  const handleSignOut = async () => {
+  const resetNavigationToOnboarding = () => {
+    // Do not use CommonActions.reset here: Expo Router’s root uses an internal slot, so RESET
+    // with { name: 'Onboarding' } is not handled. Use the router’s path-based API instead.
+    router.dismissAll();
+    queueMicrotask(() => {
+      router.replace('/Onboarding');
+    });
+  };
+
+  const performLogoutAndNavigate = async () => {
     try {
-      // Sign out from Google Sign-In (handles configuration if needed)
       await signOutGoogle();
-      
-      // Clear user data from Redux
-      dispatch(setUserData(getEmptyUserData()));
-      
-      // Navigate to Signin screen
-      router.replace('/Signin');
     } catch (error) {
       console.error('Sign out error:', error);
-      // Even if Google sign out fails, clear local state and navigate
+    } finally {
       dispatch(setUserData(getEmptyUserData()));
-      router.replace('/Signin');
+      resetNavigationToOnboarding();
     }
+  };
+
+  const handleSignOutPress = () => {
+    setShowSignOutModal(true);
+    dispatch(setShowModalApp(true));
+  };
+
+  const confirmSignOut = () => {
+    void performLogoutAndNavigate();
   };
 
   const confirmDeleteAccount = async () => {
@@ -98,7 +110,7 @@ export default function Settings() {
       });
 
       // After successful deletion, sign out locally
-      await handleSignOut();
+      await performLogoutAndNavigate();
     } catch (error: any) {
       console.error('Delete account error:', error);
       Alert.alert(t('settings.deleteAccountErrorTitle'), t('settings.deleteAccountError'));
@@ -418,11 +430,26 @@ export default function Settings() {
         <View style={styles.section}>
           <AppButton
             i18nKey="settings.signOut"
-            onPress={handleSignOut}
+            onPress={handleSignOutPress}
             styles={styles.signOutButton}
           />
         </View>
       </ScrollView>
+
+      {showSignOutModal && (
+        <ModalApp
+          titleKey="settings.signOutTitle"
+          descriptionKey="settings.signOutMessage"
+          textActionKey="settings.signOutConfirm"
+          textCancelKey="close"
+          singleButton={false}
+          onAction={confirmSignOut}
+          onCancel={() => setShowSignOutModal(false)}
+          onClose={() => setShowSignOutModal(false)}
+        >
+          <View />
+        </ModalApp>
+      )}
 
       {showDeleteModal && (
         <ModalApp

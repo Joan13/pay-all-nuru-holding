@@ -158,6 +158,9 @@
     "theme": "Thème",
     "language": "Langue",
     "signOut": "Se Déconnecter",
+    "signOutTitle": "Se déconnecter",
+    "signOutMessage": "Êtes-vous sûr de vouloir vous déconnecter ?",
+    "signOutConfirm": "Se déconnecter",
     "driver": "Chauffeur",
     "customer": "Client",
     "viewRideOrders": "Voir les Commandes",
@@ -255,7 +258,8 @@
   "rate": {
     "title": "Détails de l'Évaluation",
     "description": "Description",
-    "noRates": "Aucune évaluation pour l'instant"
+    "noRates": "Aucune évaluation pour l'instant",
+    "noRatesComfortHint": "Les passagers vous évaluent en fonction du confort qu'ils ressentent pendant la course."
   },
   "fidelityPoints": {
     "totalLabel": "Total des points",
