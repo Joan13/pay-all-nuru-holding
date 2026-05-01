@@ -1,3 +1,4 @@
+import IconApp from '@/src/components/app/IconApp';
 import AppText from '@/src/components/app/Text';
 import { AppView } from '@/src/components/app/ViewApp';
 import RateItem from '@/src/components/lists/RateItem';
@@ -9,7 +10,7 @@ import axios from 'axios';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 type DriverRate = {
   _id: string;
@@ -57,6 +58,7 @@ export default function DriverRates() {
   useEffect(() => {
     navigation.setOptions({
       title: t('settings.viewRates') || 'Driver Rates',
+      ...(Platform.OS === 'ios' ? { headerBackTitle: 'Settings' } : {}),
     });
   }, [navigation, t]);
 
@@ -78,7 +80,18 @@ export default function DriverRates() {
         </View>
       ) : rates.length === 0 ? (
         <View style={styles.center}>
-          <AppText size="normal" text={t('rate.noRates') || 'No ratings yet'} styles={{ color: themeColors.gray }} />
+          <IconApp pack="FI" name="star" size={54} color={themeColors.gray} styles={{ opacity: 0.5, marginBottom: 16 }} />
+          <AppText
+            size="normal"
+            bold
+            text={t('rate.noRates')}
+            styles={{ color: themeColors.gray, marginBottom: 8, textAlign: 'center', paddingHorizontal: 32 }}
+          />
+          <AppText
+            size="small"
+            text={t('rate.noRatesComfortHint')}
+            styles={{ color: themeColors.gray, opacity: 0.85, textAlign: 'center', paddingHorizontal: 32 }}
+          />
         </View>
       ) : (
         <FlashList

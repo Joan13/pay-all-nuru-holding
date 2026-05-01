@@ -18,6 +18,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -43,10 +44,12 @@ export default function Rides() {
   const [searchQuery, setSearchQuery] = useState('');
   const [userCity, setUserCity] = useState<string>('');
   const [modalError, setModalError] = useState<{ titleKey: string; descriptionKey: string } | null>(null);
+  const [searchBarHeight, setSearchBarHeight] = useState(52);
 
   useEffect(() => {
     navigation.setOptions({
       title: t('rides.title'),
+      ...(Platform.OS === 'ios' ? { headerBackTitle: 'Back' } : {}),
     });
   }, [navigation, t]);
 
@@ -420,7 +423,12 @@ export default function Rides() {
     </Pressable>
   );
 
-  const showSearch = rides.length > 1;
+  const showSearch = rides.length > 0;
+  const SEARCH_BAR_TOP = 15;
+  const GAP_BELOW_SEARCH = 10;
+  const listPaddingTop = showSearch
+    ? SEARCH_BAR_TOP + searchBarHeight + GAP_BELOW_SEARCH
+    : 20 + insets.top;
 
   const renderListHeader = () => (
     <>
@@ -477,16 +485,19 @@ export default function Rides() {
     <AppView style={styles.container}>
       <StatusBarApp />
 
-      {/* Floating Search Bar - Only show if more than one ride */}
+      {/* Floating Search Bar - show when there is at least one ride */}
       {showSearch && (
-        <AppView style={[
+        <AppView
+          onLayout={(e) => setSearchBarHeight(e.nativeEvent.layout.height)}
+          style={[
           styles.searchContainer,
           {
-            top: 15,
+            top: SEARCH_BAR_TOP,
             backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
             borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.1)',
           }
-        ]}>
+        ]}
+        >
           <IconApp 
             pack="FI" 
             name="search" 
@@ -534,11 +545,11 @@ export default function Rides() {
         ListHeaderComponent={renderListHeader}
         ListEmptyComponent={renderListEmpty}
         contentContainerStyle={[
-          styles.scrollContent, 
-          { 
+          styles.scrollContent,
+          {
             paddingBottom: 20 + insets.bottom,
-            paddingTop: showSearch ? 50 + insets.top : 20 + insets.top,
-          }
+            paddingTop: listPaddingTop,
+          },
         ]}
         refreshControl={
           <RefreshControl

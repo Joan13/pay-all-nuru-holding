@@ -158,6 +158,9 @@
     "theme": "Theme",
     "language": "Language",
     "signOut": "Sign Out",
+    "signOutTitle": "Sign out",
+    "signOutMessage": "Are you sure you want to sign out?",
+    "signOutConfirm": "Sign out",
     "driver": "Driver",
     "customer": "Customer",
     "viewRideOrders": "View Ride Orders",
@@ -255,7 +258,8 @@
   "rate": {
     "title": "Rating Details",
     "description": "Description",
-    "noRates": "No ratings yet"
+    "noRates": "No ratings yet",
+    "noRatesComfortHint": "Passengers will rate you based on the comfort they experience during each ride."
   },
   "fidelityPoints": {
     "totalLabel": "Total points",

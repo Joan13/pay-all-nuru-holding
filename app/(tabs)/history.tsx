@@ -27,6 +27,7 @@ export default function History() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalError, setModalError] = useState<{ titleKey: string; descriptionKey: string } | null>(null);
+  const [searchBarHeight, setSearchBarHeight] = useState(52);
   const theme = useAppSelector(state => state.persisted_app.theme);
   const userData = useAppSelector(state => state.persisted_app.user_data);
   const themeColors = theme === 'light' ? LightTheme : DarkTheme;
@@ -134,6 +135,11 @@ export default function History() {
   }
 
   const showSearch = rides.length > 0;
+  const SEARCH_BAR_TOP = 15;
+  const GAP_BELOW_SEARCH = 10;
+  const listPaddingTop = showSearch
+    ? SEARCH_BAR_TOP + searchBarHeight + GAP_BELOW_SEARCH
+    : 20 + insets.top;
 
   return (
     <AppView style={styles.container}>
@@ -141,15 +147,18 @@ export default function History() {
 
       {/* Floating Search Bar - Only show if more than one ride */}
       {showSearch && (
-        <AppView style={[
+        <AppView
+          onLayout={(e) => setSearchBarHeight(e.nativeEvent.layout.height)}
+          style={[
           styles.searchContainer,
           {
             // top: insets.top,
-            top: 15,
+            top: SEARCH_BAR_TOP,
             backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
             borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.1)',
           }
-        ]}>
+        ]}
+        >
           <IconApp 
             pack="FI" 
             name="search" 
@@ -194,8 +203,8 @@ export default function History() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
-            styles.emptyContainer, 
-            { paddingTop: showSearch ? 80 + insets.top : 20 + insets.top }
+            styles.emptyContainer,
+            { paddingTop: listPaddingTop },
           ]}
           refreshControl={
             <RefreshControl
@@ -233,11 +242,11 @@ export default function History() {
             />
           )}
           contentContainerStyle={[
-            styles.list, 
-            { 
-              paddingTop: showSearch ? 50 + insets.top : 20 + insets.top,
-              paddingBottom: 20 + insets.bottom + 10 
-            }
+            styles.list,
+            {
+              paddingTop: listPaddingTop,
+              paddingBottom: 20 + insets.bottom + 10,
+            },
           ]}
           refreshControl={
             <RefreshControl

@@ -10,7 +10,7 @@ import axios from 'axios';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 export type ClientPoint = {
   _id: string;
@@ -37,6 +37,7 @@ export default function FidelityPoints() {
   useEffect(() => {
     navigation.setOptions({
       title: t('settings.fidelityPoints') || 'Fidelity Points',
+      ...(Platform.OS === 'ios' ? { headerBackTitle: 'Settings' } : {}),
     });
   }, [navigation, t]);
 
