@@ -49,8 +49,11 @@ const Signin = () => {
     try {
       setLoading(true);
       
-      // Check if Google Play Services are available
-      await GoogleSignin.hasPlayServices();
+      // On older Android devices Play Services are often present but outdated.
+      // Triggering the system update dialog avoids hard failures.
+      await GoogleSignin.hasPlayServices({
+        showPlayServicesUpdateDialog: true,
+      });
       
       // Sign in with Google
       const userInfo = await GoogleSignin.signIn();
@@ -168,7 +171,7 @@ const Signin = () => {
           descriptionKey: 'error.signInInProgressDescription',
         });
       } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-        // Play services not available or outdated
+        // Play services missing/outdated even after update prompt.
         setModalError({
           titleKey: 'error.playServicesError',
           descriptionKey: 'error.playServicesErrorDescription',
