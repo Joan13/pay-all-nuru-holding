@@ -1,5 +1,14 @@
 import { TUserData } from '@/src/Types';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
+
+// iOS OAuth clients (GoogleService-Info.plist → project 848614197956)
+const IOS_WEB_CLIENT_ID =
+  '848614197956-07m26uktq5pj7d9q9u4tu677o15b6afp.apps.googleusercontent.com';
+
+// Android OAuth web client (google-services.json → project 677088095173 / payall-adb74)
+const ANDROID_WEB_CLIENT_ID =
+  '677088095173-l0qcfm92jleqsgg587gn99eh7ec1a8ag.apps.googleusercontent.com';
 
 /**
  * Configure Google Sign-In
@@ -7,8 +16,10 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
  */
 export const configureGoogleSignIn = () => {
   GoogleSignin.configure({
-    // webClientId: '848614197956-07m26uktq5pj7d9q9u4tu677o15b6afp.apps.googleusercontent.com',
-    webClientId: '677088095173-l0qcfm92jleqsgg587gn99eh7ec1a8ag.apps.googleusercontent.com',
+    // webClientId must be from the same Google Cloud project as the native client.
+    // iOS uses GoogleService-Info.plist (848614197956); Android uses google-services.json (677088095173).
+    webClientId:
+      Platform.OS === 'ios' ? IOS_WEB_CLIENT_ID : ANDROID_WEB_CLIENT_ID,
   });
 };
 

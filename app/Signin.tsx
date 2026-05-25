@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Image,
+  Platform,
   StyleSheet,
   TouchableOpacity,
   View
@@ -25,7 +26,10 @@ import { configureGoogleSignIn } from '@/src/utils/googleSignIn';
 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
-import { appleAuthAndroid } from '@invertase/react-native-apple-authentication';
+import appleAuth, {
+  appleAuthAndroid,
+  AppleError,
+} from '@invertase/react-native-apple-authentication';
 import 'react-native-get-random-values';
 import { v4 as uuid } from 'uuid';
 
@@ -108,129 +112,130 @@ const Signin = () => {
   // ========================
   // APPLE SIGN-IN
   // ========================
-  const signInWithApple = async () => {
-    // const appleResponse = await appleAuth.performRequest({
-    //   requestedOperation: appleAuth.Operation.LOGIN,
-    //   requestedScopes: [
-    //     appleAuth.Scope.EMAIL,
-    //     appleAuth.Scope.FULL_NAME,
-    //   ],
-    // });
+  const completeAppleSignIn = async (
+    body: Record<string, unknown>
+  ): Promise<void> => {
+    const resp = await axios.post(`${remote_url}/payall/API/signin`, body);
 
-    // const { identityToken, nonce } = appleResponse;
+    if (resp.data?.success === '1') {
+      dispatch(setUserData(resp.data.user));
+      router.replace('/(tabs)');
+      return;
+    }
 
-    // if (!identityToken) {
-    //   throw new Error("No identityToken returned from Apple");
-    // }
+    throw new Error('Apple sign-in failed');
+  };
 
-    // const provider = new OAuthProvider("apple.com");
+  const showAppleSignInError = (error: unknown) => {
+    const message =
+      error instanceof Error ? error.message : 'error.signInErrorDescription';
 
-    // const credential = provider.credential({
-    //   idToken: identityToken,
-    //   rawNonce: nonce ?? undefined,
-    // });
+    setModalError({
+      titleKey: 'error.signInError',
+      descriptionKey: message,
+    });
+    dispatch(setShowModalApp(true));
+  };
 
-    // const result = await signInWithCredential(auth, credential);
-
-    // return result.user;
-
-    // Generate secure, random values for state and nonce
+  const signInWithAppleAndroid = async () => {
     const rawNonce = uuid();
     const state = uuid();
 
-    // Configure the request
     appleAuthAndroid.configure({
-      // The Service ID you registered with Apple
       clientId: 'com.payallapp.servicesid',
-
-      // Return URL added to your Apple dev console. We intercept this redirect, but it must still match
-      // the URL you provided to Apple. It can be an empty route on your backend as it's never called.
       redirectUri: 'https://payall-adb74.firebaseapp.com/__/auth/handler',
-
-      // The type of response requested - code, id_token, or both.
       responseType: appleAuthAndroid.ResponseType.ALL,
-
-      // The amount of user information requested from Apple.
       scope: appleAuthAndroid.Scope.ALL,
-
-      // Random nonce value that will be SHA256 hashed before sending to Apple.
       nonce: rawNonce,
-
-      // Unique state value used to prevent CSRF attacks. A UUID will be generated if nothing is provided.
       state,
     });
 
-    // Open the browser window for user sign in
     const response = await appleAuthAndroid.signIn();
-
     const user = response.user;
 
-    console.log(response.id_token);
-
-    if (!user || user === null) {
-      try {
-        const resp = await axios.post(`${remote_url}/payall/API/signin`, { "id_token": response.id_token });
-        if (resp.data?.success === '1') {
-          dispatch(setUserData(resp.data.user));
-          router.replace('/(tabs)');
-        } else {
-          throw new Error('Apple sign-in failed');
-        }
-
-      } catch (error: any) {
-        console.error(error);
-
-        setModalError({
-          titleKey: 'error.signInError',
-          descriptionKey: error.message || 'error.signInErrorDescription',
-        });
-
-        dispatch(setShowModalApp(true));
-      } finally {
-        setLoading(false);
-      }
+    if (user?.email) {
+      await completeAppleSignIn({
+        user_email: user.email,
+        names: `${user.name?.firstName ?? ''} ${user.name?.lastName ?? ''}`.trim(),
+        gender: 0,
+        country: '',
+        city: 'Unknown',
+        state: '',
+        address: '',
+        phone_numbers: [],
+        user_password: '',
+        profile_picture: '',
+        account_type: 0,
+        is_admin: false,
+      });
+      return;
     }
 
-    if (user && user.email) {
-      try {
-        setLoading(true);
+    if (!response.id_token) {
+      throw new Error('No Apple id_token');
+    }
 
-        const payload = {
-          user_email: user.email,
-          names: user.name?.firstName + " " + user.name?.lastName,
-          gender: 0,
-          country: '',
-          city: 'Unknown',
-          state: '',
-          address: '',
-          phone_numbers: [],
-          user_password: '',
-          profile_picture: '',
-          account_type: 0,
-          is_admin: false,
-        };
+    await completeAppleSignIn({ id_token: response.id_token });
+  };
 
-        const res = await axios.post(`${remote_url}/payall/API/signin`, payload);
+  const signInWithAppleIOS = async () => {
+    const appleResponse = await appleAuth.performRequest({
+      requestedOperation: appleAuth.Operation.LOGIN,
+      requestedScopes: [appleAuth.Scope.EMAIL, appleAuth.Scope.FULL_NAME],
+    });
 
-        if (res.data?.success === '1') {
-          dispatch(setUserData(res.data.user));
-          router.replace('/(tabs)');
-        } else {
-          throw new Error('Apple sign-in failed');
+    const { identityToken, email, fullName } = appleResponse;
+
+    if (!identityToken) {
+      throw new Error('No Apple identity token');
+    }
+
+    if (email) {
+      const names = [fullName?.givenName, fullName?.familyName]
+        .filter(Boolean)
+        .join(' ');
+
+      await completeAppleSignIn({
+        user_email: email,
+        names,
+        gender: 0,
+        country: '',
+        city: 'Unknown',
+        state: '',
+        address: '',
+        phone_numbers: [],
+        user_password: '',
+        profile_picture: '',
+        account_type: 0,
+        is_admin: false,
+      });
+      return;
+    }
+
+    await completeAppleSignIn({ id_token: identityToken });
+  };
+
+  const handleAppleSignIn = async () => {
+    try {
+      setLoading(true);
+
+      if (Platform.OS === 'ios') {
+        if (!appleAuth.isSupported) {
+          throw new Error('Sign in with Apple is not supported on this device');
         }
-
-      } catch (error: any) {
-        console.error(error);
-
-        setModalError({
-          titleKey: 'error.signInError',
-          descriptionKey: error.message || 'error.signInErrorDescription',
-        });
-
-        dispatch(setShowModalApp(true));
-      } finally {
-        setLoading(false);
+        await signInWithAppleIOS();
+      } else {
+        await signInWithAppleAndroid();
       }
+    } catch (error: any) {
+      if (error?.code === AppleError.CANCELED) {
+        return;
+      }
+
+      console.error(error);
+      showAppleSignInError(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -282,17 +287,17 @@ const Signin = () => {
           />
           <AppText i18nKey="signinWithGoogle" />
         </TouchableOpacity>
-        {appleAuthAndroid.isSupported && (
-          //  {Platform.OS === 'ios' && (
-          <TouchableOpacity style={styles.button} onPress={signInWithApple}>
+        {/* {appleAuthAndroid.isSupported && ( */}
+          <TouchableOpacity style={[styles.button, {
+            display: Platform.OS==='android'? appleAuthAndroid.isSupported?'flex':'none':'flex'
+          }]} onPress={handleAppleSignIn} disabled={loading}>
             <Image
               source={require('./../src/assets/images/apple.png')}
               style={styles.icon}
             />
             <AppText i18nKey="signinWithApple" />
           </TouchableOpacity>
-          // )}
-        )}
+        {/* )} */}
 
       </Animated.View>
 
