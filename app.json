@@ -1,16 +1,20 @@
 {
   "expo": {
-    "name": "powerpay",
-    "slug": "powerpay",
+    "name": "payallapp",
+    "slug": "payallapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "scheme": "powerpay",
+    "scheme": "payallapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "icon": "./assets/ios-app-icon-1024.png",
       "supportsTablet": true,
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
       "bundleIdentifier": "com.payallapp",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show your position on the map.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show your position on the map."
@@ -22,7 +26,7 @@
         "foregroundImage": "./src/assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "edgeToEdgeEnabled": true,
+      "googleServicesFile": "./google-services.json",
       "package": "com.payallapp"
     },
     "web": {
@@ -32,7 +36,14 @@
     },
     "plugins": [
       "expo-router",
-      "react-native-bootsplash"
+      [
+        "react-native-bootsplash",
+        {
+          "background": "#000000",
+          "logo": "./src/assets/images/logo.png",
+          "logoWidth": 192
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

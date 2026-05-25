@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "677088095173",
+    "project_id": "payall-adb74",
+    "storage_bucket": "payall-adb74.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:677088095173:android:bf6d490e120b86365039ac",
+        "android_client_info": {
+          "package_name": "com.payallapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "677088095173-2tmp3b9limh3p9p63fif3crlrcks7608.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.payallapp",
+            "certificate_hash": "5c302c1d67cf1d98788448077ae65d2f5e331be5"
+          }
+        },
+        {
+          "client_id": "677088095173-97fts00ra2tnt70cvl28uuauj993r2en.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.payallapp",
+            "certificate_hash": "54dda4df76eaabb258824ca3d30698b71b1d03a3"
+          }
+        },
+        {
+          "client_id": "677088095173-l0qcfm92jleqsgg587gn99eh7ec1a8ag.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgNjCqqdgqtEiipIJx5zGZqjEtfcKNoFg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "677088095173-l0qcfm92jleqsgg587gn99eh7ec1a8ag.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

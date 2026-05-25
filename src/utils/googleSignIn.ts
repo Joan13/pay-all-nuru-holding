@@ -9,8 +9,6 @@ export const configureGoogleSignIn = () => {
   GoogleSignin.configure({
     // webClientId: '848614197956-07m26uktq5pj7d9q9u4tu677o15b6afp.apps.googleusercontent.com',
     webClientId: '677088095173-l0qcfm92jleqsgg587gn99eh7ec1a8ag.apps.googleusercontent.com',
-    offlineAccess: true,
-    forceCodeForRefreshToken: true,
   });
 };
 
@@ -22,7 +20,7 @@ export const signOutGoogle = async (): Promise<void> => {
   try {
     // Ensure Google Sign-In is configured before signing out
     configureGoogleSignIn();
-    
+
     // Try to get current user to check if signed in
     try {
       const currentUser = await GoogleSignin.getCurrentUser();
