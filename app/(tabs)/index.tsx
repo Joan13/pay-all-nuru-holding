@@ -84,6 +84,12 @@ export default function Home() {
   const [is3D, setIs3D] = useState(true); // Default to 3D view
   const mapRef = useRef<any>(null);
 
+  // Package & Carpooling fields
+  const [withPackage, setWithPackage] = useState(false);
+  const [packageWeight, setPackageWeight] = useState('');
+  const [packageDescription, setPackageDescription] = useState('');
+  const [carpooling, setCarpooling] = useState(false);
+
   useEffect(() => {
     requestLocationPermission();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -275,9 +281,9 @@ export default function Home() {
   };
 
   const addManualStop = () => {
-    // Only allow adding a new stop if the last stop has at least 4 characters
+    // Only allow adding a new stop if the last stop has at least 1 character
     const lastStop = manualStops[manualStops.length - 1];
-    if (lastStop && lastStop.trim().length >= 4) {
+    if (lastStop && lastStop.trim().length > 0) {
       setManualStops([...manualStops, '']);
     }
   };
@@ -811,6 +817,12 @@ export default function Home() {
     setRouteDistance(null);
     setRouteDuration(null);
     setRouteCoordinates([]);
+    
+    // Clear package and carpooling options
+    setWithPackage(false);
+    setPackageWeight('');
+    setPackageDescription('');
+    setCarpooling(false);
   };
 
   const clearTo = () => {
@@ -1472,6 +1484,10 @@ export default function Home() {
                 routeDuration,
                 rideTimeNow,
                 selectedRideDateTime: rideTimeNow ? null : selectedRideDateTime,
+                withPackage: withPackage ? 1 : 0,
+                packageWeight: withPackage ? parseFloat(packageWeight) || 0 : 0,
+                packageDescription: withPackage ? packageDescription : '',
+                carpooling: carpooling ? 1 : 0,
               };
               
               // Navigate to ConfirmRide page
@@ -1590,6 +1606,7 @@ export default function Home() {
                   ? 'rgba(255, 255, 255, 0.95)' 
                   : 'rgba(0, 0, 0, 0.85)',
                 borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.2)',
+                maxHeight: '100%',
               },
             ]}
           >
@@ -1619,6 +1636,7 @@ export default function Home() {
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+              style={{ flexShrink: 1 }}
             >
               <ScrollView
                 style={styles.detailsPanelScrollView}
@@ -2089,6 +2107,119 @@ export default function Home() {
                   )}
                 </View>
               )}
+
+              {/* Package & Carpooling Options */}
+              {fromLocation && toLocation && (
+                <View style={[styles.manualEntryRow, { borderTopColor: themeColors.border, marginTop: 12, paddingTop: 12, borderTopWidth: 1 }]}>
+                  <AppText
+                    i18nKey="home.packageOptions"
+                    size="small"
+                    bold
+                    styles={{ color: themeColors.gray, marginBottom: 12 }}
+                  />
+
+                  {/* Package Toggle */}
+                  <View style={styles.rideTimeHeader}>
+                    <View style={styles.rideTimeHeaderLeft}>
+                      <IconApp
+                        pack="FI"
+                        name="box"
+                        size={16}
+                        color={themeColors.primary}
+                        styles={{ marginRight: 8 }}
+                      />
+                      <AppText
+                        i18nKey="home.hasPackage"
+                        size="small"
+                        styles={{ color: themeColors.text }}
+                      />
+                    </View>
+                    <SwitchApp
+                      value={withPackage}
+                      onPress={setWithPackage}
+                    />
+                  </View>
+
+                  {/* Package Details (if package is toggled) */}
+                  {withPackage && (
+                    <Animated.View entering={FadeInDown.duration(200)} style={{ marginTop: 8, gap: 8 }}>
+                      <View style={[
+                        styles.dateTimeButtonContainer,
+                        {
+                          backgroundColor: theme === 'light' 
+                            ? 'rgba(0, 0, 0, 0.05)' 
+                            : 'rgba(255, 255, 255, 0.1)',
+                          borderColor: themeColors.border,
+                        },
+                      ]}>
+                        <IconApp
+                          pack="FI"
+                          name="info"
+                          size={16}
+                          color={themeColors.primary}
+                          styles={{ marginRight: 8 }}
+                        />
+                        <TextInput
+                          value={packageWeight}
+                          onChangeText={setPackageWeight}
+                          placeholder={t('home.packageWeight')}
+                          placeholderTextColor={themeColors.gray}
+                          style={[
+                            styles.dateTimeInput,
+                            { color: themeColors.text },
+                          ]}
+                          keyboardType="numeric"
+                        />
+                      </View>
+
+                      <View style={[
+                        styles.dateTimeButtonContainer,
+                        {
+                          backgroundColor: theme === 'light' 
+                            ? 'rgba(0, 0, 0, 0.05)' 
+                            : 'rgba(255, 255, 255, 0.1)',
+                          borderColor: themeColors.border,
+                          minHeight: 60,
+                        },
+                      ]}>
+                        <TextInput
+                          value={packageDescription}
+                          onChangeText={setPackageDescription}
+                          placeholder={t('home.packageDescription')}
+                          placeholderTextColor={themeColors.gray}
+                          style={[
+                            styles.dateTimeInput,
+                            { color: themeColors.text },
+                          ]}
+                          multiline
+                        />
+                      </View>
+                    </Animated.View>
+                  )}
+
+                  {/* Carpooling Toggle */}
+                  <View style={[styles.rideTimeHeader, { marginTop: 12 }]}>
+                    <View style={styles.rideTimeHeaderLeft}>
+                      <IconApp
+                        pack="FI"
+                        name="users"
+                        size={16}
+                        color={themeColors.primary}
+                        styles={{ marginRight: 8 }}
+                      />
+                      <AppText
+                        i18nKey="home.allowCarpooling"
+                        size="small"
+                        styles={{ color: themeColors.text, flex: 1 }}
+                      />
+                    </View>
+                    <SwitchApp
+                      value={carpooling}
+                      onPress={setCarpooling}
+                    />
+                  </View>
+                </View>
+              )}
             </ScrollView>
             </KeyboardAvoidingView>
           </BlurView>
@@ -2118,6 +2249,7 @@ export default function Home() {
                   ? 'rgba(255, 255, 255, 0.95)' 
                   : 'rgba(0, 0, 0, 0.85)',
                 borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.2)',
+                maxHeight: '100%',
               },
             ]}
           >
@@ -2147,6 +2279,7 @@ export default function Home() {
             <KeyboardAvoidingView
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+              style={{ flexShrink: 1 }}
             >
               <ScrollView
                 style={styles.detailsPanelScrollView}
@@ -2223,27 +2356,22 @@ export default function Home() {
                         />
                       </TouchableOpacity>
                     )}
+                    {index === manualStops.length - 1 && stop.trim().length > 0 && (
+                      <TouchableOpacity
+                        onPress={addManualStop}
+                        style={styles.removeStopButton}
+                      >
+                        <IconApp
+                          pack="FI"
+                          name="plus"
+                          size={16}
+                          color={themeColors.primary}
+                          styles={{}}
+                        />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ))}
-                {manualStops[manualStops.length - 1]?.trim().length >= 4 && (
-                  <TouchableOpacity
-                    onPress={addManualStop}
-                    style={styles.addManualStopButton}
-                  >
-                    <IconApp
-                      pack="FI"
-                      name="plus"
-                      size={16}
-                      color={themeColors.primary}
-                      styles={{ marginRight: 8 }}
-                    />
-                    <AppText
-                      i18nKey="home.addStop"
-                      size="small"
-                      styles={{ color: themeColors.primary }}
-                    />
-                  </TouchableOpacity>
-                )}
               </View>
 
               {/* To Location */}
@@ -2372,6 +2500,117 @@ export default function Home() {
                     </View>
                   </View>
                 )}
+              </View>
+
+              {/* Package & Carpooling Options */}
+              <View style={styles.manualEntryRow}>
+                <AppText
+                  i18nKey="home.packageOptions"
+                  size="small"
+                  bold
+                  styles={{ color: themeColors.gray, marginBottom: 12 }}
+                />
+
+                {/* Package Toggle */}
+                <View style={styles.rideTimeHeader}>
+                  <View style={styles.rideTimeHeaderLeft}>
+                    <IconApp
+                      pack="FI"
+                      name="box"
+                      size={16}
+                      color={themeColors.primary}
+                      styles={{ marginRight: 8 }}
+                    />
+                    <AppText
+                      i18nKey="home.hasPackage"
+                      size="small"
+                      styles={{ color: themeColors.text }}
+                    />
+                  </View>
+                  <SwitchApp
+                    value={withPackage}
+                    onPress={setWithPackage}
+                  />
+                </View>
+
+                {/* Package Details (if package is toggled) */}
+                {withPackage && (
+                  <Animated.View entering={FadeInDown.duration(200)} style={{ marginTop: 8, gap: 8 }}>
+                    <View style={[
+                      styles.dateTimeButtonContainer,
+                      {
+                        backgroundColor: theme === 'light' 
+                          ? 'rgba(0, 0, 0, 0.05)' 
+                          : 'rgba(255, 255, 255, 0.1)',
+                        borderColor: themeColors.border,
+                      },
+                    ]}>
+                      <IconApp
+                        pack="FI"
+                        name="info"
+                        size={16}
+                        color={themeColors.primary}
+                        styles={{ marginRight: 8 }}
+                      />
+                      <TextInput
+                        value={packageWeight}
+                        onChangeText={setPackageWeight}
+                        placeholder={t('home.packageWeight')}
+                        placeholderTextColor={themeColors.gray}
+                        style={[
+                          styles.dateTimeInput,
+                          { color: themeColors.text },
+                        ]}
+                        keyboardType="numeric"
+                      />
+                    </View>
+
+                    <View style={[
+                      styles.dateTimeButtonContainer,
+                      {
+                        backgroundColor: theme === 'light' 
+                          ? 'rgba(0, 0, 0, 0.05)' 
+                          : 'rgba(255, 255, 255, 0.1)',
+                        borderColor: themeColors.border,
+                        minHeight: 60,
+                      },
+                    ]}>
+                      <TextInput
+                        value={packageDescription}
+                        onChangeText={setPackageDescription}
+                        placeholder={t('home.packageDescription')}
+                        placeholderTextColor={themeColors.gray}
+                        style={[
+                          styles.dateTimeInput,
+                          { color: themeColors.text },
+                        ]}
+                        multiline
+                      />
+                    </View>
+                  </Animated.View>
+                )}
+
+                {/* Carpooling Toggle */}
+                <View style={[styles.rideTimeHeader, { marginTop: 12 }]}>
+                  <View style={styles.rideTimeHeaderLeft}>
+                    <IconApp
+                      pack="FI"
+                      name="users"
+                      size={16}
+                      color={themeColors.primary}
+                      styles={{ marginRight: 8 }}
+                    />
+                    <AppText
+                      i18nKey="home.allowCarpooling"
+                      size="small"
+                      styles={{ color: themeColors.text, flex: 1 }}
+                    />
+                  </View>
+                  <SwitchApp
+                    value={carpooling}
+                    onPress={setCarpooling}
+                  />
+                </View>
               </View>
 
               {/* Confirm Button */}

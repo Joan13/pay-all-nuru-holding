@@ -38,6 +38,10 @@ interface RideData {
   routeDuration: number | null;
   rideTimeNow: boolean;
   selectedRideDateTime: Date | null;
+  withPackage?: number;
+  packageWeight?: number;
+  packageDescription?: string;
+  carpooling?: number;
 }
 
 export default function ConfirmRide() {
@@ -73,6 +77,10 @@ export default function ConfirmRide() {
         routeDuration: null,
         rideTimeNow: true,
         selectedRideDateTime: null,
+        withPackage: 0,
+        packageWeight: 0,
+        packageDescription: '',
+        carpooling: 0,
       };
 
   const formatDuration = (minutes: number): string => {
@@ -144,7 +152,7 @@ export default function ConfirmRide() {
       const ridePayload = {
         ride: {
           user_id: userData._id,
-          driver_id: '', // Empty for new rides, will be assigned when driver accepts
+          driver_id: null, // Null for new rides, will be assigned when driver accepts
           start_location: rideData.fromLocation.address,
           end_location: rideData.toLocation.address,
           stops: rideData.stops.map(stop => ({
@@ -157,6 +165,10 @@ export default function ConfirmRide() {
           distance: rideData.routeDistance || 0,
           city: userData.city || 'Unknown', // Required field
           estimated_duration: rideData.routeDuration || 0, // in minutes
+          with_package: rideData.withPackage || 0,
+          package_weight: rideData.packageWeight || 0,
+          package_description: rideData.packageDescription || '',
+          carpooling: rideData.carpooling || 0,
           ride_status: 0, // 0 = pending, 1 = accepted, 2 = in progress, 3 = completed, 4 = cancelled
           ride_type: rideTypeNumber, // 0 = standard, 1 = VIP
           ride_price: ridePrice,
@@ -238,7 +250,7 @@ export default function ConfirmRide() {
               size="medium"
               bold
               color="primaryForeground"
-              styles={{ color: '#FFFFFF' }}
+              styles={{ color: themeColors.primaryForeground }}
             />
           </TouchableOpacity>
         </View>
@@ -418,6 +430,51 @@ export default function ConfirmRide() {
                 styles={{ color: themeColors.primary }}
               />
             </View>
+
+            {/* Package details & Carpooling details */}
+            {(rideData.withPackage === 1 || rideData.carpooling === 1) && (
+              <View style={{ borderTopColor: themeColors.border, marginTop: 12, paddingTop: 12, borderTopWidth: 1, gap: 8 }}>
+                {rideData.withPackage === 1 && (
+                  <View style={styles.infoRow}>
+                    <IconApp
+                      pack="FI"
+                      name="box"
+                      size={16}
+                      color={themeColors.primary}
+                      styles={{ marginRight: 8 }}
+                    />
+                    <AppText
+                      i18nKey="home.packageDetails"
+                      size="small"
+                      styles={{ color: themeColors.gray, marginRight: 4 }}
+                    />
+                    <AppText
+                      text={`${rideData.packageWeight} kg${rideData.packageDescription ? ` (${rideData.packageDescription})` : ''}`}
+                      size="small"
+                      bold
+                      styles={{ color: themeColors.primary }}
+                    />
+                  </View>
+                )}
+                {rideData.carpooling === 1 && (
+                  <View style={styles.infoRow}>
+                    <IconApp
+                      pack="FI"
+                      name="users"
+                      size={16}
+                      color={themeColors.primary}
+                      styles={{ marginRight: 8 }}
+                    />
+                    <AppText
+                      i18nKey="home.carpoolingAllowed"
+                      size="small"
+                      bold
+                      styles={{ color: themeColors.primary }}
+                    />
+                  </View>
+                )}
+              </View>
+            )}
           </BlurView>
         </Animated.View>
 
@@ -688,14 +745,14 @@ export default function ConfirmRide() {
             activeOpacity={0.8}
           >
             {isProcessing ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={themeColors.primaryForeground} />
             ) : (
               <AppText
                 text={paymentMethod === 'online' ? t('confirmRide.confirmAndPay') : t('confirmRide.confirm')}
                 size="medium"
                 bold
                 color="primaryForeground"
-                styles={{ color: '#FFFFFF' }}
+                styles={{ color: themeColors.primaryForeground }}
               />
             )}
           </TouchableOpacity>

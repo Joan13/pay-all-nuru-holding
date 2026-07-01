@@ -9,6 +9,7 @@
   "signin": "Sign in",
   "signinWithGoogle": "Sign in with Google",
   "signinWithApple": "Sign in with Apple",
+  "signinWithPhone": "Continue with phone number",
   "payElectricity": "Pay electricity",
   "signinAdvantages": "Sign in to access exclusive features, track your rides, and enjoy faster booking",
   "seeMap": "See the map",
@@ -98,13 +99,25 @@
     "enterTo": "Enter destination",
     "confirm": "Confirm",
     "rideTime": "Ride Time",
-    "now": "Now"
+    "now": "Now",
+    "hasPackage": "I have a package (parcel)",
+    "packageWeight": "Package Weight (kg)",
+    "packageWeightPlaceholder": "e.g., 5",
+    "packageDescription": "Package Description (optional)",
+    "packageDescriptionPlaceholder": "e.g., Box containing clothes",
+    "allowCarpooling": "Allow driver to pick up other passengers (Carpooling)",
+    "packageOptions": "Package & Carpooling",
+    "packageDetails": "Package Details",
+    "carpoolingAllowed": "Carpooling Allowed",
+    "carpoolingNotAllowed": "Carpooling Not Allowed",
+    "noPackage": "No package"
   },
   "history": {
     "title": "Ride History",
     "rideOrders": "Ride Orders",
     "searchPlaceholder": "Search by location...",
     "noRides": "No rides found",
+    "noRidesDescription": "You don't have any ride history yet. Start your very first ride today!",
     "startTime": "Start",
     "endTime": "End",
     "openRide": "Open Ride"
@@ -149,7 +162,18 @@
     "submitRate": "Submit rating",
     "invalidRate": "Please select a rating between 1 and 5.",
     "rateSaved": "Your rating has been submitted.",
-    "rateFailed": "Failed to submit rating."
+    "rateFailed": "Failed to submit rating.",
+    "confirmRide": "Confirm Ride",
+    "confirmRideTitle": "Confirm Ride",
+    "confirmRideDescription": "Please confirm the ride details and the price set by the driver.",
+    "confirmRideConfirm": "Confirm Ride",
+    "driverAcceptTitle": "Accept Ride & Set Price",
+    "driverAcceptSubmit": "Accept & Set Price",
+    "enterPriceMandatory": "Enter ride price (mandatory)",
+    "editRide": "Edit Ride",
+    "editRideTitle": "Edit Ride Details",
+    "editRideDescription": "Modify the locations, stops, or carpooling of your ride.",
+    "editRideSubmit": "Save Changes"
   },
   "settings": {
     "title": "Settings",
@@ -247,7 +271,9 @@
     "title": "Available Rides",
     "showingRidesIn": "Showing rides in",
     "searchPlaceholder": "Search rides...",
-    "noRidesAvailable": "No rides available in your area",
+    "noRidesAvailable": "No rides available",
+    "noRidesDescription": "There are no available rides in your area right now. Start a new ride to get on your way!",
+    "startNewRide": "Start a new ride",
     "acceptRide": "Accept Ride",
     "pending": "Pending",
     "accepted": "Accepted",
@@ -295,5 +321,22 @@
     "accountType": "Account Type",
     "unknown": "Unknown",
     "admin": "Admin"
+  },
+  "phoneSignIn": {
+    "enterPhone": "Enter your phone number",
+    "enterPhoneDescription": "We will send you a 5-digit verification code.",
+    "phonePlaceholder": "999 999 999",
+    "sendCode": "Send Code",
+    "enterCode": "Enter verification code",
+    "enterCodeDescription": "Enter the 5-digit code sent to your phone.",
+    "verify": "Verify & Sign In",
+    "invalidPhone": "Please enter a valid phone number",
+    "invalidCode": "Invalid verification code",
+    "back": "Back",
+    "sending": "Sending code...",
+    "verifying": "Verifying...",
+    "smsMessage": "Your Paye-All verification code is: ",
+    "selectCountry": "Select Country",
+    "search": "Search..."
   }
 }

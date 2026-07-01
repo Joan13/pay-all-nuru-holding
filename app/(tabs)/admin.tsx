@@ -272,7 +272,7 @@ export default function Admin() {
               size="small"
               bold
               styles={{
-                color: activeTab === 'overview' ? '#FFFFFF' : themeColors.text,
+                color: activeTab === 'overview' ? themeColors.primaryForeground : themeColors.text,
               }}
             />
           </TouchableOpacity>
@@ -291,7 +291,7 @@ export default function Admin() {
               size="small"
               bold
               styles={{
-                color: activeTab === 'rides' ? '#FFFFFF' : themeColors.text,
+                color: activeTab === 'rides' ? themeColors.primaryForeground : themeColors.text,
               }}
             />
           </TouchableOpacity>
@@ -310,7 +310,7 @@ export default function Admin() {
               size="small"
               bold
               styles={{
-                color: activeTab === 'users' ? '#FFFFFF' : themeColors.text,
+                color: activeTab === 'users' ? themeColors.primaryForeground : themeColors.text,
               }}
             />
           </TouchableOpacity>
@@ -494,7 +494,7 @@ export default function Admin() {
                     text={t('admin.viewAllRides') || 'View All Rides'}
                     size="normal"
                     bold
-                    styles={{ color: '#FFFFFF' }}
+                    styles={{ color: themeColors.primaryForeground }}
                   />
                 </Pressable>
                 {filteredRides.length === 0 ? (
@@ -590,7 +590,7 @@ export default function Admin() {
                     text={t('admin.viewAllUsers') || 'View All Users'}
                     size="normal"
                     bold
-                    styles={{ color: '#FFFFFF' }}
+                    styles={{ color: themeColors.primaryForeground }}
                   />
                 </Pressable>
                 {filteredUsers.length === 0 ? (

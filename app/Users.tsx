@@ -237,7 +237,7 @@ export default function Users() {
           i18nKey="retry"
           size="normal"
           bold
-          styles={{ color: '#FFFFFF' }}
+          styles={{ color: themeColors.primaryForeground }}
         />
       </Pressable>
     </View>

@@ -38,8 +38,8 @@ export default function DriverRates() {
   const fetchRates = useCallback(async () => {
     try {
       setLoading(true);
-      const url = `${remote_url}/payall/API/get_driver_rates`;
-      const apiResponse = await axios.post(url, { driver_id: userData?._id }, {
+      const url = `${remote_url}/payall/API/get_ratings`;
+      const apiResponse = await axios.post(url, { rated_id: userData?._id }, {
         headers: { 'Content-Type': 'application/json' },
       });
       if (apiResponse.data && apiResponse.data.success === '1') {

@@ -302,8 +302,8 @@ export default function User() {
             }
           ]}
         >
-          <IconApp pack="FI" name="edit-2" size={18} color="#FFFFFF" styles={{ marginRight: 8 }} />
-          <AppText size="normal" bold text={t('updateUser.title') || 'Edit Profile'} styles={{ color: '#FFFFFF' }} />
+          <IconApp pack="FI" name="edit-2" size={18} color={themeColors.primaryForeground} styles={{ marginRight: 8 }} />
+          <AppText size="normal" bold text={t('updateUser.title') || 'Edit Profile'} styles={{ color: themeColors.primaryForeground }} />
         </Pressable>
       </ScrollView>
     </AppView>

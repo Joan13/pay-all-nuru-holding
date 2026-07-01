@@ -1,7 +1,7 @@
 import { DarkTheme, LightTheme } from "@/src/constants/Themes";
 import React, { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Text, TouchableOpacity, ViewStyle } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, ViewStyle } from "react-native";
 import { useAppSelector } from "../../store/app/hooks";
 
 export interface IButton {
@@ -22,6 +22,7 @@ export interface IButton {
    */
   textColor?: string;
   onPress: () => void;
+  children?: React.ReactNode;
 }
 
 const AppButton: React.FC<IButton> = ({
@@ -35,6 +36,7 @@ const AppButton: React.FC<IButton> = ({
   styles,
   color,
   textColor,
+  children,
 }) => {
   const { t } = useTranslation();
   const themeName = useAppSelector(state => state.persisted_app.theme);
@@ -69,23 +71,31 @@ const AppButton: React.FC<IButton> = ({
   };
 
   const display = displayText.toUpperCase();
+  const showSpinner = loadEnabled === true;
   return (
     <TouchableOpacity
-      style={baseStyle}
-      activeOpacity={0.7}
-      onPress={onPress}
+      style={[baseStyle, showSpinner && { opacity: 0.8 }]}
+      activeOpacity={showSpinner ? 1 : 0.7}
+      onPress={showSpinner ? undefined : onPress}
+      disabled={showSpinner}
     >
-      <Text
-        numberOfLines={1}
-        style={{
-          color: baseTextColor,
-          fontSize: 16,
-          fontWeight: "600",
-          letterSpacing: 0.5,
-        }}
-      >
-        {display}
-      </Text>
+      {showSpinner ? (
+        <ActivityIndicator color={baseTextColor} size="small" />
+      ) : children ? (
+        children
+      ) : (
+        <Text
+          numberOfLines={1}
+          style={{
+            color: baseTextColor,
+            fontSize: 16,
+            fontWeight: "600",
+            letterSpacing: 0.5,
+          }}
+        >
+          {display}
+        </Text>
+      )}
     </TouchableOpacity>
   );
 };

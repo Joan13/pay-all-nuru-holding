@@ -415,7 +415,7 @@ export default function Rides() {
               size="medium"
               bold
               color="primaryForeground"
-              styles={{ color: '#FFFFFF' }}
+              styles={{ color: themeColors.primaryForeground }}
             />
           </Pressable>
         )}
@@ -461,23 +461,38 @@ export default function Rides() {
 
   const renderListEmpty = () => (
     <View style={styles.emptyContainer}>
-      <IconApp
-        pack="FI"
-        name="inbox"
-        size={64}
-        color={themeColors.gray}
-        styles={{ marginBottom: 16 }}
-      />
+      <View style={[styles.emptyIconContainer, { backgroundColor: themeColors.primary + '15' }]}>
+        <IconApp
+          pack="IO"
+          name="car-outline"
+          size={48}
+          color={themeColors.primary}
+        />
+      </View>
       <AppText
         i18nKey="rides.noRidesAvailable"
-        size="medium"
-        styles={{ color: themeColors.gray, textAlign: 'center', marginBottom: 20 }}
+        size="big"
+        bold
+        styles={{ color: themeColors.text, textAlign: 'center', marginBottom: 8 }}
       />
-      <AppButton
-        i18nKey="retry"
-        onPress={onRefresh}
-        styles={{ width: 120 }}
+      <AppText
+        i18nKey="rides.noRidesDescription"
+        size="normal"
+        styles={{ color: themeColors.gray, textAlign: 'center', marginBottom: 28, paddingHorizontal: 24, lineHeight: 22 }}
       />
+      <View style={styles.emptyButtonsContainer}>
+        <AppButton
+          i18nKey="rides.startNewRide"
+          onPress={() => router.push('/(tabs)')}
+          styles={{ width: '100%', marginBottom: 12 }}
+        />
+        <AppButton
+          i18nKey="retry"
+          onPress={onRefresh}
+          outline
+          styles={{ width: '100%' }}
+        />
+      </View>
     </View>
   );
 
@@ -633,6 +648,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 24,
+  },
+  emptyIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyButtonsContainer: {
+    width: '100%',
+    maxWidth: 280,
+    alignItems: 'center',
   },
   rideCard: {
     borderRadius: 16,

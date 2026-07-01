@@ -34,7 +34,7 @@ export type TUserData = {
 export type TRide = {
     _id: string,
     user_id: string,
-    driver_id: string,
+    driver_id: string | null,
     start_location: string,
     end_location: string,
     stops: {
@@ -56,6 +56,12 @@ export type TRide = {
     ride_payment_date: string,
     ride_payment_amount: number,
     ride_payment_currency: number,
+    with_package?: number,
+    package_weight?: number,
+    package_description?: string,
+    carpooling?: number,
+    client_accepted?: number,
+    driver_accepted?: number,
     createdAt: string,
     updatedAt: string
 }

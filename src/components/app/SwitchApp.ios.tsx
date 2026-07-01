@@ -1,6 +1,7 @@
 import { ViewStyle } from "react-native";
 import { useAppSelector } from "../../store/app/hooks";
-import { Host, Switch } from "@expo/ui/jetpack-compose";
+import { Host, Toggle } from "@expo/ui/swift-ui";
+import { disabled as disabledModifier, tint } from "@expo/ui/swift-ui/modifiers";
 import React, { useMemo } from "react";
 import { DarkTheme, LightTheme } from "@/src/constants/Themes";
 
@@ -30,24 +31,13 @@ const SwitchApp: React.FC<ISwitchAppProps> = ({
 
   return (
     <Host matchContents>
-      <Switch
-        onCheckedChange={onPress}
-        value={value}
-        colors={{
-          checkedThumbColor: themeColors.background,
-          checkedTrackColor: primaryColor,
-          uncheckedThumbColor: themeColors.background,
-          uncheckedTrackColor: themeColors.gray,
-          uncheckedBorderColor: themeColors.border,
-
-          disabledCheckedThumbColor: themeColors.background,
-          disabledCheckedTrackColor: themeColors.gray + "50",
-
-          disabledUncheckedThumbColor: themeColors.background,
-          disabledUncheckedTrackColor: themeColors.gray + "50",
-          disabledUncheckedBorderColor: themeColors.gray + "50",
-        }}
-        enabled={!disabled}
+      <Toggle
+        isOn={value}
+        onIsOnChange={onPress}
+        modifiers={[
+          tint(primaryColor),
+          disabledModifier(!!disabled),
+        ]}
       />
     </Host>
   );

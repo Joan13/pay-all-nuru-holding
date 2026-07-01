@@ -9,6 +9,7 @@
   "signin": "Connexion",
   "signinWithGoogle": "Connectez-vous avec Google",
   "signinWithApple": "Connectez-vous avec Apple",
+  "signinWithPhone": "Continuer avec un numéro de téléphone",
   "payElectricity": "Payer l'électricité",
   "signinAdvantages": "Connectez-vous pour accéder à des fonctionnalités exclusives, suivre vos courses et profiter de réservations plus rapides",
   "seeMap": "Voir la carte",
@@ -98,13 +99,25 @@
     "enterTo": "Entrer la destination",
     "confirm": "Confirmer",
     "rideTime": "Heure du Trajet",
-    "now": "Maintenant"
+    "now": "Maintenant",
+    "hasPackage": "J'ai un colis (paquet)",
+    "packageWeight": "Poids du colis (kg)",
+    "packageWeightPlaceholder": "ex: 5",
+    "packageDescription": "Description du colis (optionnel)",
+    "packageDescriptionPlaceholder": "ex: Boîte contenant des vêtements",
+    "allowCarpooling": "Autoriser le conducteur à prendre d'autres passagers (Covoiturage)",
+    "packageOptions": "Options Colis & Covoiturage",
+    "packageDetails": "Détails du Colis",
+    "carpoolingAllowed": "Covoiturage Autorisé",
+    "carpoolingNotAllowed": "Covoiturage Non Autorisé",
+    "noPackage": "Pas de colis"
   },
   "history": {
     "title": "Historique des Courses",
     "rideOrders": "Commandes de Courses",
     "searchPlaceholder": "Rechercher par lieu...",
     "noRides": "Aucune course trouvée",
+    "noRidesDescription": "Vous n'avez pas encore d'historique de course. Démarrez votre premier trajet dès aujourd'hui !",
     "startTime": "Début",
     "endTime": "Fin",
     "openRide": "Ouvrir la Course"
@@ -149,7 +162,18 @@
     "submitRate": "Soumettre l'évaluation",
     "invalidRate": "Veuillez sélectionner une note entre 1 et 5.",
     "rateSaved": "Votre évaluation a été soumise.",
-    "rateFailed": "Échec de la soumission de l'évaluation."
+    "rateFailed": "Échec de la soumission de l'évaluation.",
+    "confirmRide": "Confirmer la Course",
+    "confirmRideTitle": "Confirmer la Course",
+    "confirmRideDescription": "Veuillez confirmer les détails de la course et le prix défini par le chauffeur.",
+    "confirmRideConfirm": "Confirmer la Course",
+    "driverAcceptTitle": "Accepter la Course & Définir le Prix",
+    "driverAcceptSubmit": "Accepter & Définir le Prix",
+    "enterPriceMandatory": "Entrer le prix de la course (obligatoire)",
+    "editRide": "Modifier la Course",
+    "editRideTitle": "Modifier les Détails de la Course",
+    "editRideDescription": "Modifiez les adresses, arrêts ou le covoiturage de votre course.",
+    "editRideSubmit": "Enregistrer les Modifications"
   },
   "settings": {
     "title": "Paramètres",
@@ -247,7 +271,9 @@
     "title": "Courses Disponibles",
     "showingRidesIn": "Affichage des courses dans",
     "searchPlaceholder": "Rechercher des courses...",
-    "noRidesAvailable": "Aucune course disponible dans votre région",
+    "noRidesAvailable": "Aucune course disponible",
+    "noRidesDescription": "Il n'y a aucune course disponible dans votre région pour le moment. Commencez un nouveau trajet pour vous déplacer !",
+    "startNewRide": "Démarrer un trajet",
     "acceptRide": "Accepter la Course",
     "pending": "En Attente",
     "accepted": "Acceptée",
@@ -295,5 +321,22 @@
     "accountType": "Type de Compte",
     "unknown": "Inconnu",
     "admin": "Administrateur"
+  },
+  "phoneSignIn": {
+    "enterPhone": "Entrez votre numéro de téléphone",
+    "enterPhoneDescription": "Nous vous enverrons un code de vérification à 5 chiffres.",
+    "phonePlaceholder": "999 999 999",
+    "sendCode": "Envoyer le code",
+    "enterCode": "Entrez le code de vérification",
+    "enterCodeDescription": "Entrez le code à 5 chiffres envoyé à votre téléphone.",
+    "verify": "Vérifier & Se connecter",
+    "invalidPhone": "Veuillez entrer un numéro de téléphone valide",
+    "invalidCode": "Code de vérification invalide",
+    "back": "Retour",
+    "sending": "Envoi du code...",
+    "verifying": "Vérification...",
+    "smsMessage": "Votre code de vérification Paye-All est: ",
+    "selectCountry": "Sélectionner le pays",
+    "search": "Rechercher..."
   }
 }
