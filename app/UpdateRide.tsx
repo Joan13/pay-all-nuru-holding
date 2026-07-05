@@ -1,14 +1,14 @@
 import AppButton from '@/src/components/app/AppButton';
 import IconApp from '@/src/components/app/IconApp';
+import ModalApp from '@/src/components/app/ModalApp';
 import StatusBarApp from '@/src/components/app/StatusBar';
 import SwitchApp from '@/src/components/app/SwitchApp';
 import AppText from '@/src/components/app/Text';
 import { AppView } from '@/src/components/app/ViewApp';
 import { remote_url } from '@/src/constants/Constants';
 import { DarkTheme, LightTheme } from '@/src/constants/Themes';
-import ModalApp from '@/src/components/app/ModalApp';
-import { setShowModalApp } from '@/src/store/reducers/appSlice';
 import { useAppDispatch, useAppSelector } from '@/src/store/app/hooks';
+import { setShowModalApp } from '@/src/store/reducers/appSlice';
 import { TRide } from '@/src/Types';
 import axios from 'axios';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
@@ -19,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -45,9 +46,10 @@ export default function UpdateRide() {
   const [ride, setRide] = useState<TRide | null>(null);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const isDriver = userData?.account_type === 1;
-  const isClient = userData?.account_type === 0 || userData?.account_type === undefined;
+  const isRideOwner = !!ride && ride.user_id === userData?._id;
 
   const [modalConfig, setModalConfig] = useState<{
     title: string;
@@ -76,17 +78,17 @@ export default function UpdateRide() {
   useEffect(() => {
     navigation.setOptions({
       title: mode === 'driver_accept'
-        ? (t('ride.driverAcceptTitle') || 'Accept Ride & Price')
+        ? (t('ride.driverAcceptTitle'))
         : mode === 'client_confirm'
-          ? (t('ride.confirmRideTitle') || 'Confirm Ride')
-          : (t('ride.editRideTitle') || 'Edit Ride Details'),
+          ? (t('ride.confirmRideTitle'))
+          : (t('ride.editRideTitle')),
     });
   }, [navigation, mode, t]);
 
-  const fetchRideDetails = useCallback(async () => {
+  const fetchRideDetails = useCallback(async (isRefresh = false) => {
     if (!rideId || !userData?._id) return;
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const getRidesUrl = `${remote_url}/payall/API/get_rides`;
       const apiResponse = await axios.post(getRidesUrl, {
         user_id: userData._id,
@@ -100,10 +102,10 @@ export default function UpdateRide() {
       if (apiResponse.data && apiResponse.data.success === '1' && apiResponse.data.rides) {
         const foundRide = apiResponse.data.rides.find((r: TRide) => r._id === rideId);
         if (foundRide) {
-          if (mode === 'edit_ride' && isClient && foundRide.driver_id) {
+          if (mode === 'edit_ride' && foundRide.user_id === userData?._id && (foundRide.driver_id && foundRide.driver_accepted === 1 && foundRide.ride_price > 0)) {
             showModalAlert(
-              t('error') || 'Error',
-              t('ride.cannotEditAccepted') || 'This ride has already been accepted by a driver.',
+              t('error'),
+              t('ride.cannotEditAccepted'),
               () => router.back()
             );
             return;
@@ -122,29 +124,35 @@ export default function UpdateRide() {
           setCarpoolingInput(foundRide.carpooling || 0);
         } else {
           showModalAlert(
-            t('ride.notFound') || 'Ride not found',
-            t('ride.notFoundDescription') || 'This ride could not be found.',
+            t('ride.notFound'),
+            t('ride.notFoundDescription'),
             () => router.back()
           );
         }
       } else {
         showModalAlert(
-          t('networkError') || 'Error',
-          t('ride.fetchError') || 'Failed to fetch ride details.',
+          t('networkError'),
+          t('ride.fetchError'),
           () => router.back()
         );
       }
     } catch (error: any) {
       console.error('Error fetching ride details:', error);
       showModalAlert(
-        t('networkError') || 'Error',
-        t('ride.fetchError') || 'Failed to fetch ride details.',
+        t('networkError'),
+        t('ride.fetchError'),
         () => router.back()
       );
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
     }
-  }, [rideId, userData?._id, router, t]);
+  }, [rideId, userData?._id, router, t, mode]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchRideDetails(true);
+    setRefreshing(false);
+  }, [fetchRideDetails]);
 
   useEffect(() => {
     fetchRideDetails();
@@ -162,7 +170,7 @@ export default function UpdateRide() {
     if (mode === 'driver_accept') {
       const price = parseFloat(priceInput);
       if (isNaN(price) || price <= 0) {
-        showModalAlert(t('error') || 'Error', t('ride.invalidPrice') || 'Please enter a valid price.');
+        showModalAlert(t('error'), t('ride.invalidPrice'));
         return;
       }
 
@@ -187,19 +195,19 @@ export default function UpdateRide() {
 
         if (apiResponse.data && apiResponse.data.success === '1') {
           showModalAlert(
-            t('success') || 'Success',
-            t('ride.updateSuccessDescription') || 'Ride accepted and price set successfully.',
+            t('success'),
+            t('ride.updateSuccessDescription'),
             () => router.back()
           );
         } else {
           showModalAlert(
-            t('error') || 'Error',
-            apiResponse.data.error || (t('ride.updateFailed') || 'Failed to accept ride.')
+            t('error'),
+            apiResponse.data.error || (t('ride.updateFailed'))
           );
         }
       } catch (error: any) {
         console.error('Driver accept error:', error);
-        showModalAlert(t('error') || 'Error', t('ride.updateFailed') || 'An error occurred.');
+        showModalAlert(t('error'), t('ride.updateFailed'));
       } finally {
         setIsProcessing(false);
       }
@@ -223,37 +231,37 @@ export default function UpdateRide() {
 
         if (apiResponse.data && apiResponse.data.success === '1') {
           showModalAlert(
-            t('success') || 'Success',
-            t('ride.updateSuccessDescription') || 'Ride confirmed successfully!',
+            t('success'),
+            t('ride.updateSuccessDescription'),
             () => router.back()
           );
         } else {
           showModalAlert(
-            t('error') || 'Error',
-            apiResponse.data.error || (t('ride.updateFailed') || 'Failed to confirm ride.')
+            t('error'),
+            apiResponse.data.error || (t('ride.updateFailed'))
           );
         }
       } catch (error: any) {
         console.error('Client confirm error:', error);
-        showModalAlert(t('error') || 'Error', t('ride.updateFailed') || 'An error occurred.');
+        showModalAlert(t('error'), t('ride.updateFailed'));
       } finally {
         setIsProcessing(false);
       }
     } else if (mode === 'edit_ride') {
-      if (isClient) {
-        if (ride.driver_id) {
+      if (isRideOwner) {
+        if (ride.driver_id && ride.driver_accepted === 1 && ride.ride_price > 0) {
           showModalAlert(
-            t('error') || 'Error',
-            t('ride.cannotEditAccepted') || 'This ride has already been accepted by a driver.'
+            t('error'),
+            t('ride.cannotEditAccepted')
           );
           return;
         }
         if (!startLocInput.trim()) {
-          showModalAlert(t('error') || 'Error', t('confirmRide.invalidRide') || 'Starting location cannot be empty.');
+          showModalAlert(t('error'), t('confirmRide.invalidRide'));
           return;
         }
         if (!endLocInput.trim()) {
-          showModalAlert(t('error') || 'Error', t('confirmRide.invalidRide') || 'Destination cannot be empty.');
+          showModalAlert(t('error'), t('confirmRide.invalidRide'));
           return;
         }
       }
@@ -263,7 +271,7 @@ export default function UpdateRide() {
         const updateRideUrl = `${remote_url}/payall/API/update_ride`;
 
         let updateFields = {};
-        if (isClient) {
+        if (isRideOwner) {
           updateFields = {
             start_location: startLocInput,
             end_location: endLocInput,
@@ -276,7 +284,7 @@ export default function UpdateRide() {
         } else if (isDriver) {
           const price = parseFloat(priceInput);
           if (isNaN(price) || price <= 0) {
-            showModalAlert(t('error') || 'Error', t('ride.invalidPrice') || 'Please enter a valid price.');
+            showModalAlert(t('error'), t('ride.invalidPrice'));
             setIsProcessing(false);
             return;
           }
@@ -299,19 +307,19 @@ export default function UpdateRide() {
 
         if (apiResponse.data && apiResponse.data.success === '1') {
           showModalAlert(
-            t('success') || 'Success',
-            t('ride.updateSuccessDescription') || 'Ride details updated successfully.',
+            t('success'),
+            t('ride.updateSuccessDescription'),
             () => router.back()
           );
         } else {
           showModalAlert(
-            t('error') || 'Error',
-            apiResponse.data.error || (t('ride.updateFailed') || 'Failed to update ride.')
+            t('error'),
+            apiResponse.data.error || (t('ride.updateFailed'))
           );
         }
       } catch (error: any) {
         console.error('Edit ride error:', error);
-        showModalAlert(t('error') || 'Error', t('ride.updateFailed') || 'An error occurred.');
+        showModalAlert(t('error'), t('ride.updateFailed'));
       } finally {
         setIsProcessing(false);
       }
@@ -326,14 +334,14 @@ export default function UpdateRide() {
   const formatDuration = (minutes: number): string => {
     if (!minutes || minutes === 0) return '';
     if (minutes < 60) {
-      return `${minutes} ${t('home.minutes') || 'min'}`;
+      return `${minutes} ${t('home.minutes')}`;
     }
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     if (remainingMinutes === 0) {
-      return `${hours} ${t('home.hours') || 'hrs'}`;
+      return `${hours} ${t('home.hours')}`;
     }
-    return `${hours} ${t('home.hours') || 'hrs'} ${remainingMinutes} ${t('home.minutes') || 'min'}`;
+    return `${hours} ${t('home.hours')} ${remainingMinutes} ${t('home.minutes')}`;
   };
 
   if (loading) {
@@ -343,7 +351,7 @@ export default function UpdateRide() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColors.primary} />
           <AppText
-            text={t('loading') || 'Loading...'}
+            text={t('loading')}
             size="small"
             styles={{ marginTop: 12, color: themeColors.gray }}
           />
@@ -358,12 +366,12 @@ export default function UpdateRide() {
         <StatusBarApp />
         <View style={styles.loadingContainer}>
           <AppText
-            text={t('ride.notFound') || 'Ride not found'}
+            text={t('ride.notFound')}
             size="medium"
             styles={{ color: themeColors.gray }}
           />
           <AppButton
-            title={t('close') || 'Go Back'}
+            title={t('close')}
             onPress={() => router.back()}
             styles={{ width: '80%', marginTop: 20 }}
           />
@@ -383,6 +391,9 @@ export default function UpdateRide() {
           style={styles.scrollView}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primary]} tintColor={themeColors.primary} />
+          }
         >
           {/* Instruction header */}
           <Animated.View entering={FadeInUp.delay(50).springify()} style={styles.headerTextContainer}>
@@ -390,40 +401,40 @@ export default function UpdateRide() {
               size="big"
               bold
               text={mode === 'driver_accept'
-                ? (t('ride.driverAcceptTitle') || 'Accept Ride & Set Price')
+                ? (t('ride.driverAcceptTitle'))
                 : mode === 'client_confirm'
-                  ? (t('ride.confirmRideTitle') || 'Confirm Ride')
-                  : (t('ride.editRideTitle') || 'Edit Ride Details')
+                  ? (t('ride.confirmRideTitle'))
+                  : (t('ride.editRideTitle'))
               }
               styles={{ color: themeColors.text, marginBottom: 6 }}
             /> */}
             <AppText
               // size="small"
               text={mode === 'driver_accept'
-                ? (t('ride.enterPriceMandatory') || 'Please set a price for this ride. This price will be presented to the client.')
+                ? (t('ride.enterPriceMandatory'))
                 : mode === 'client_confirm'
-                  ? (t('ride.confirmRideDescription') || 'Please confirm the ride details and the price set by the driver.')
-                  : (t('ride.editRideDescription') || 'Modify the locations, stops, or price details of your ride.')
+                  ? (t('ride.confirmRideDescription'))
+                  : (t('ride.editRideDescription'))
               }
               styles={{ color: themeColors.gray, lineHeight: 18 }}
             />
           </Animated.View>
 
           {/* Route Card */}
-          {(mode === 'edit_ride' && isClient) ? (
+          {(mode === 'edit_ride' && isRideOwner) ? (
             <Animated.View
               entering={FadeInUp.delay(100).springify()}
               style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}
             >
-              <AppText size="normal" bold text={t('ride.route') || 'Route Details'} styles={{ marginBottom: 12, color: themeColors.text }} />
+              <AppText size="normal" bold text={t('ride.route')} styles={{ marginBottom: 12, color: themeColors.text }} />
 
               <View style={{ gap: 12 }}>
                 <View>
-                  <AppText size="small" bold text={t('home.from') || 'From'} styles={{ color: themeColors.text, marginBottom: 6 }} />
+                  <AppText size="small" bold text={t('home.from')} styles={{ color: themeColors.text, marginBottom: 6 }} />
                   <TextInput
                     value={startLocInput}
                     onChangeText={setStartLocInput}
-                    placeholder={t('home.enterFrom') || 'Enter starting location'}
+                    placeholder={t('home.enterFrom')}
                     placeholderTextColor={themeColors.gray}
                     style={[
                       styles.priceInput,
@@ -439,12 +450,20 @@ export default function UpdateRide() {
                 </View>
 
                 {stopsInputs.map((stop, index) => (
-                  <View key={index}>
-                    <AppText size="small" bold text={`${t('home.stop') || 'Stop'} ${index + 1}`} styles={{ color: themeColors.text, marginBottom: 6 }} />
+                  <View key={index} style={{ marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <AppText size="small" bold text={`${t('home.stop')} ${index + 1}`} styles={{ color: themeColors.text }} />
+                      <Pressable
+                        onPress={() => setStopsInputs(stopsInputs.filter((_, idx) => idx !== index))}
+                        style={{ padding: 4 }}
+                      >
+                        <IconApp pack="FI" name="trash-2" size={16} color={themeColors.error || '#FF3B30'} />
+                      </Pressable>
+                    </View>
                     <TextInput
                       value={stop.address}
                       onChangeText={(text) => handleStopChange(text, index)}
-                      placeholder={t('home.selectingStop') || 'Enter stop address'}
+                      placeholder={t('home.selectingStop')}
                       placeholderTextColor={themeColors.gray}
                       style={[
                         styles.priceInput,
@@ -460,12 +479,33 @@ export default function UpdateRide() {
                   </View>
                 ))}
 
+                <Pressable
+                  onPress={() => setStopsInputs([...stopsInputs, { address: '', latitude: 0, longitude: 0 }])}
+                  style={({ pressed }) => [
+                    {
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 10,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderStyle: 'dashed',
+                      borderColor: themeColors.primary,
+                      marginTop: 8,
+                      opacity: pressed ? 0.7 : 1,
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="plus" size={16} color={themeColors.primary} styles={{ marginRight: 6 }} />
+                  <AppText size="small" bold text={t('home.addStop')} styles={{ color: themeColors.primary }} />
+                </Pressable>
+
                 <View>
-                  <AppText size="small" bold text={t('home.to') || 'To'} styles={{ color: themeColors.text, marginBottom: 6 }} />
+                  <AppText size="small" bold text={t('home.to')} styles={{ color: themeColors.text, marginBottom: 6 }} />
                   <TextInput
                     value={endLocInput}
                     onChangeText={setEndLocInput}
-                    placeholder={t('home.enterTo') || 'Enter destination'}
+                    placeholder={t('home.enterTo')}
                     placeholderTextColor={themeColors.gray}
                     style={[
                       styles.priceInput,
@@ -486,12 +526,12 @@ export default function UpdateRide() {
               entering={FadeInUp.delay(100).springify()}
               style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}
             >
-              <AppText size="normal" bold text={t('ride.route') || 'Route'} styles={{ marginBottom: 12, color: themeColors.text }} />
+              <AppText size="normal" bold text={t('ride.route')} styles={{ marginBottom: 12, color: themeColors.text }} />
 
               <View style={styles.locationRow}>
                 <View style={[styles.locationIndicator, { backgroundColor: '#007AFF' }]} />
                 <View style={styles.locationContent}>
-                  <AppText size="normal" bold text={t('home.from') || 'From'} styles={styles.label} />
+                  <AppText size="normal" bold text={t('home.from')} styles={styles.label} />
                   <AppText size="normal" text={ride.start_location} styles={{ color: themeColors.text }} />
                 </View>
               </View>
@@ -502,7 +542,7 @@ export default function UpdateRide() {
                     <View key={index} style={styles.locationRow}>
                       <View style={[styles.locationIndicator, { backgroundColor: '#FFA500' }]} />
                       <View style={styles.locationContent}>
-                        <AppText size="normal" bold text={`${t('home.stop') || 'Stop'} ${index + 1}`} styles={styles.label} />
+                        <AppText size="normal" bold text={`${t('home.stop')} ${index + 1}`} styles={styles.label} />
                         <AppText size="normal" text={stop.address} styles={{ color: themeColors.text }} />
                       </View>
                     </View>
@@ -513,7 +553,7 @@ export default function UpdateRide() {
               <View style={styles.locationRow}>
                 <View style={[styles.locationIndicator, { backgroundColor: '#FF3B30' }]} />
                 <View style={styles.locationContent}>
-                  <AppText size="normal" bold text={t('home.to') || 'To'} styles={styles.label} />
+                  <AppText size="normal" bold text={t('home.to')} styles={styles.label} />
                   <AppText size="normal" text={ride.end_location} styles={{ color: themeColors.text }} />
                 </View>
               </View>
@@ -521,12 +561,12 @@ export default function UpdateRide() {
           )}
 
           {/* Details Card */}
-          {(mode === 'edit_ride' && isClient) ? (
+          {(mode === 'edit_ride' && isRideOwner) ? (
             <Animated.View
               entering={FadeInUp.delay(150).springify()}
               style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}
             >
-              <AppText size="normal" bold text={t('ride.details') || 'Ride Details'} styles={{ marginBottom: 16, color: themeColors.text }} />
+              <AppText size="normal" bold text={t('ride.details')} styles={{ marginBottom: 16, color: themeColors.text }} />
 
               {/* Package Toggle */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -544,11 +584,11 @@ export default function UpdateRide() {
               {withPackageInput === 1 && (
                 <View style={{ marginBottom: 16, gap: 10 }}>
                   <View>
-                    <AppText size="small" bold text={t('home.packageWeight') || 'Package Weight (kg)'} styles={{ color: themeColors.text, marginBottom: 6 }} />
+                    <AppText size="small" bold text={t('home.packageWeight')} styles={{ color: themeColors.text, marginBottom: 6 }} />
                     <TextInput
                       value={packageWeightInput}
                       onChangeText={setPackageWeightInput}
-                      placeholder={t('home.packageWeightPlaceholder') || 'e.g., 5'}
+                      placeholder={t('home.packageWeightPlaceholder')}
                       placeholderTextColor={themeColors.gray}
                       keyboardType="numeric"
                       style={[
@@ -565,11 +605,11 @@ export default function UpdateRide() {
                   </View>
 
                   <View>
-                    <AppText size="small" bold text={t('home.packageDescription') || 'Package Description (optional)'} styles={{ color: themeColors.text, marginBottom: 6 }} />
+                    <AppText size="small" bold text={t('home.packageDescription')} styles={{ color: themeColors.text, marginBottom: 6 }} />
                     <TextInput
                       value={packageDescriptionInput}
                       onChangeText={setPackageDescriptionInput}
-                      placeholder={t('home.packageDescriptionPlaceholder') || 'e.g., Box containing clothes'}
+                      placeholder={t('home.packageDescriptionPlaceholder')}
                       placeholderTextColor={themeColors.gray}
                       style={[
                         styles.priceInput,
@@ -603,13 +643,13 @@ export default function UpdateRide() {
               entering={FadeInUp.delay(150).springify()}
               style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}
             >
-              <AppText size="normal" bold text={t('ride.details') || 'Ride Details'} styles={{ marginBottom: 12, color: themeColors.text }} />
+              <AppText size="normal" bold text={t('ride.details')} styles={{ marginBottom: 12, color: themeColors.text }} />
 
               <View style={styles.detailsGrid}>
                 {ride.distance > 0 && (
                   <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
                     <IconApp pack="FI" name="map" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
-                    <AppText size="small" text={t('home.distance') || 'Distance'} styles={{ opacity: 0.7, marginBottom: 2, color: themeColors.text }} />
+                    <AppText size="small" text={t('home.distance')} styles={{ opacity: 0.7, marginBottom: 2, color: themeColors.text }} />
                     <AppText size="normal" bold text={`${ride.distance.toFixed(1)} km`} styles={{ color: themeColors.text }} />
                   </View>
                 )}
@@ -617,7 +657,7 @@ export default function UpdateRide() {
                 {ride.estimated_duration > 0 && (
                   <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
                     <IconApp pack="FI" name="clock" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
-                    <AppText size="small" text={t('home.duration') || 'Duration'} styles={{ opacity: 0.7, marginBottom: 2, color: themeColors.text }} />
+                    <AppText size="small" text={t('home.duration')} styles={{ opacity: 0.7, marginBottom: 2, color: themeColors.text }} />
                     <AppText size="normal" bold text={formatDuration(ride.estimated_duration)} styles={{ color: themeColors.text }} />
                   </View>
                 )}
@@ -629,11 +669,11 @@ export default function UpdateRide() {
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                   <IconApp pack="FI" name="box" size={16} color={ride.with_package === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
                   <View style={{ flex: 1 }}>
-                    <AppText size="small" text={t('home.packageOptions') || 'Package (Parcel)'} styles={{ opacity: 0.7, marginBottom: 1, color: themeColors.text }} />
+                    <AppText size="small" text={t('home.packageOptions')} styles={{ opacity: 0.7, marginBottom: 1, color: themeColors.text }} />
                     {ride.with_package === 1 ? (
                       <AppText size="normal" bold text={`${ride.package_weight || 0} kg${ride.package_description ? ` (${ride.package_description})` : ''}`} styles={{ color: themeColors.text }} />
                     ) : (
-                      <AppText size="normal" text={t('home.noPackage') || 'No package'} styles={{ color: themeColors.gray }} />
+                      <AppText size="normal" bold text={t('home.noPackage')} styles={{ color: themeColors.gray }} />
                     )}
                   </View>
                 </View>
@@ -642,11 +682,11 @@ export default function UpdateRide() {
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                   <IconApp pack="FI" name="users" size={16} color={ride.carpooling === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
                   <View style={{ flex: 1 }}>
-                    <AppText size="small" text={t('home.allowCarpooling') || 'Carpooling'} styles={{ opacity: 0.7, marginBottom: 1, color: themeColors.text }} />
+                    <AppText size="small" text={t('home.allowCarpooling')} styles={{ opacity: 0.7, marginBottom: 1, color: themeColors.text }} />
                     <AppText
                       size="normal"
                       bold
-                      text={ride.carpooling === 1 ? (t('home.carpoolingAllowed') || 'Allowed') : (t('home.carpoolingNotAllowed') || 'Not Allowed')}
+                      text={ride.carpooling === 1 ? (t('home.carpoolingAllowed')) : (t('home.carpoolingNotAllowed'))}
                       styles={{ color: ride.carpooling === 1 ? themeColors.primary : themeColors.gray }}
                     />
                   </View>
@@ -661,13 +701,13 @@ export default function UpdateRide() {
               entering={FadeInUp.delay(200).springify()}
               style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}
             >
-              <AppText size="normal" bold text={t('ride.setPrice') || 'Set Ride Price'} styles={{ marginBottom: 12, color: themeColors.text }} />
+              <AppText size="normal" bold text={t('ride.setPrice')} styles={{ marginBottom: 12, color: themeColors.text }} />
 
               <View style={styles.priceInputContainer}>
                 <TextInput
                   value={priceInput}
                   onChangeText={setPriceInput}
-                  placeholder={t('ride.enterPrice') || 'Enter price'}
+                  placeholder={t('ride.enterPrice')}
                   placeholderTextColor={themeColors.gray}
                   keyboardType="numeric"
                   style={[
@@ -684,7 +724,7 @@ export default function UpdateRide() {
               <View style={styles.currencyContainer}>
                 <AppText
                   size="normal"
-                  text={t('ride.currency') || 'Currency'}
+                  text={t('ride.currency')}
                   styles={{ marginBottom: 12, color: themeColors.text }}
                 />
                 <View style={styles.currencyOptions}>
@@ -725,7 +765,7 @@ export default function UpdateRide() {
               entering={FadeInUp.delay(200).springify()}
               style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}
             >
-              <AppText size="normal" bold text={t('ride.price') || 'Ride Price'} styles={{ marginBottom: 12, color: themeColors.text }} />
+              <AppText size="normal" bold text={t('ride.price')} styles={{ marginBottom: 12, color: themeColors.text }} />
               <View style={[styles.paymentBadge, { backgroundColor: themeColors.primary + '10' }]}>
                 <IconApp pack="FI" name="dollar-sign" size={16} color={themeColors.primary} styles={{ marginRight: 8 }} />
                 <AppText
@@ -745,10 +785,10 @@ export default function UpdateRide() {
           >
             <AppButton
               title={mode === 'driver_accept'
-                ? (t('ride.driverAcceptSubmit') || 'Accept & Set Price')
+                ? (t('ride.driverAcceptSubmit'))
                 : mode === 'client_confirm'
-                  ? (t('ride.confirmRideConfirm') || 'Confirm Ride')
-                  : (t('ride.editRideSubmit') || 'Save Changes')
+                  ? (t('ride.confirmRideConfirm'))
+                  : (t('ride.editRideSubmit'))
               }
               onPress={handleSubmit}
               loadEnabled={isProcessing}
@@ -757,7 +797,7 @@ export default function UpdateRide() {
             />
 
             {/* <AppButton
-              title={t('cancel') || 'Cancel'}
+              title={t('cancel')}
               onPress={() => router.back()}
               outline
               color={themeColors.gray}

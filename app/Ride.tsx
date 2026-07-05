@@ -15,9 +15,11 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -44,6 +46,8 @@ export default function Ride() {
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [showCancelRideModal, setShowCancelRideModal] = useState(false);
   const [showCancelAcceptModal, setShowCancelAcceptModal] = useState(false);
+  const [showConfirmRideModal, setShowConfirmRideModal] = useState(false);
+  const [showReadyToStartModal, setShowReadyToStartModal] = useState(false);
   const [priceInput, setPriceInput] = useState('');
   const [currencyInput, setCurrencyInput] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<number | null>(null);
@@ -53,6 +57,21 @@ export default function Ride() {
   const [driverInfo, setDriverInfo] = useState<TUserData | null>(null);
   const [userInfo, setUserInfo] = useState<TUserData | null>(null);
   const [loadingContact, setLoadingContact] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCodeVerificationModal, setShowCodeVerificationModal] = useState(false);
+  const [verificationCodeInput, setVerificationCodeInput] = useState('');
+  const [codeError, setCodeError] = useState('');
+
+  const [modalConfig, setModalConfig] = useState<{
+    title: string;
+    description: string;
+    onClose?: () => void;
+  } | null>(null);
+
+  const showModalAlert = (title: string, description: string, onClose?: () => void) => {
+    setModalConfig({ title, description, onClose });
+    dispatch(setShowModalApp(true));
+  };
 
   const rideId = params.rideId as string;
   const isDriver = userData?.account_type === 1;
@@ -129,13 +148,13 @@ export default function Ride() {
       (/\(tabs\)/i.test(prevName) || /history/i.test(prevName));
 
     navigation.setOptions({
-      title: t('ride.title') || 'Ride Details',
+      title: t('ride.title'),
       // iOS-only: customize back button label
       ...(Platform.OS === 'ios'
         ? {
           headerBackTitle:
             cameFromTabsOrHistory
-              ? (t('history.title') || t('tabs.history') || 'Ride history')
+              ? (t('history.title') || t('tabs.history'))
               : undefined,
         }
         : {}),
@@ -151,9 +170,9 @@ export default function Ride() {
     });
   }, [navigation, t, ride, isRideOwner, isProcessing, themeColors, handleCancelRide]);
 
-  const fetchRide = useCallback(async () => {
+  const fetchRide = useCallback(async (isRefresh = false) => {
     try {
-      setLoading(true);
+      if (!isRefresh) setLoading(true);
       const getRidesUrl = `${remote_url}/payall/API/get_rides`;
       const apiResponse = await axios.post(getRidesUrl, {
         user_id: userData?._id,
@@ -169,21 +188,33 @@ export default function Ride() {
         if (foundRide) {
           setRide(foundRide);
         } else {
-          Alert.alert(t('ride.notFound') || 'Ride not found', t('ride.notFoundDescription') || 'This ride could not be found.');
-          router.back();
+          showModalAlert(t('ride.notFound'), t('ride.notFoundDescription'), () => router.back());
         }
       } else {
-        Alert.alert(t('networkError') || 'Error', t('ride.fetchError') || 'Failed to fetch ride details.');
-        router.back();
+        showModalAlert(t('networkError'), t('ride.fetchError'), () => router.back());
       }
     } catch (error: any) {
       console.error('Error fetching ride:', error);
-      Alert.alert(t('networkError') || 'Error', t('ride.fetchError') || 'Failed to fetch ride details.');
-      router.back();
+      showModalAlert(t('networkError'), t('ride.fetchError'), () => router.back());
     } finally {
-      setLoading(false);
+      if (!isRefresh) setLoading(false);
     }
   }, [rideId, userData?._id, router, t]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchRide(true);
+    setRefreshing(false);
+  }, [fetchRide]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (rideId && userData?._id) {
+        fetchRide(true);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, rideId, userData?._id, fetchRide]);
 
   useEffect(() => {
     if (rideId && userData?._id) {
@@ -252,11 +283,11 @@ export default function Ride() {
       if (canOpen) {
         await Linking.openURL(phoneUrl);
       } else {
-        Alert.alert(t('error.networkError') || 'Error', t('ride.noContactInfo') || 'Cannot make phone call.');
+        showModalAlert(t('networkError'), t('ride.noContactInfo'));
       }
     } catch (error) {
       console.error('Error opening phone:', error);
-      Alert.alert(t('error.networkError') || 'Error', t('ride.noContactInfo') || 'Cannot make phone call.');
+      showModalAlert(t('networkError'), t('ride.noContactInfo'));
     }
   };
 
@@ -293,6 +324,13 @@ export default function Ride() {
   };
 
   const handleConfirmRide = () => {
+    setShowConfirmRideModal(true);
+    dispatch(setShowModalApp(true));
+  };
+
+  const confirmConfirmRideAction = () => {
+    setShowConfirmRideModal(false);
+    dispatch(setShowModalApp(false));
     router.push({ pathname: '/UpdateRide', params: { rideId, mode: 'client_confirm' } } as any);
   };
 
@@ -318,10 +356,63 @@ export default function Ride() {
     }
   }, [updateRide, dispatch]);
 
-  const handleStartRide = async () => {
-    const success = await updateRide({ ride_status: 2 }); // 2 = in progress
-    if (success) {
-      // Ride started
+  const handleConfirmReadyToStart = () => {
+    setShowReadyToStartModal(true);
+    dispatch(setShowModalApp(true));
+  };
+
+  const confirmReadyToStartAction = async () => {
+    setShowReadyToStartModal(false);
+    dispatch(setShowModalApp(false));
+    await updateRide({ client_start_confirmed: 1 });
+  };
+
+  const handleStartRide = () => {
+    if (!ride) return;
+    if (ride.client_start_confirmed !== 1) {
+      showModalAlert(
+        t('ride.waitingForClientTitle'),
+        t('ride.waitingForClientDesc')
+      );
+      return;
+    }
+    setVerificationCodeInput('');
+    setCodeError('');
+    setShowCodeVerificationModal(true);
+    dispatch(setShowModalApp(true));
+  };
+
+  const handleVerifyCodeAndStart = async () => {
+    if (!ride) return;
+    const entered = verificationCodeInput.trim().toUpperCase();
+    if (!entered) return;
+
+    try {
+      setIsProcessing(true);
+      const updateRideUrl = `${remote_url}/payall/API/update_ride`;
+      const apiResponse = await axios.post(updateRideUrl, {
+        ride_id: rideId,
+        ride: {
+          start_otp: entered
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (apiResponse.data && apiResponse.data.success === '1') {
+        setRide(apiResponse.data.ride);
+        setShowCodeVerificationModal(false);
+        dispatch(setShowModalApp(false));
+      } else {
+        setCodeError(apiResponse.data.error || t('ride.incorrectCode'));
+      }
+    } catch (error: any) {
+      console.error('Verify start OTP error:', error);
+      setCodeError(t('networkError'));
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -357,7 +448,7 @@ export default function Ride() {
   const submitDriverRate = useCallback(async () => {
     if (!userData?._id || !ride || !ride.driver_id) return;
     if (driverRate < 1 || driverRate > 5) {
-      Alert.alert(t('error') || 'Error', t('ride.invalidRate') || 'Please select a rating between 1 and 5.');
+      showModalAlert(t('errorTitle'), t('ride.invalidRate'));
       return;
     }
     try {
@@ -375,13 +466,15 @@ export default function Ride() {
         headers: { 'Content-Type': 'application/json' },
       });
       if (apiResponse.data && apiResponse.data.success === '1') {
-        Alert.alert(t('success') || 'Success', t('ride.rateSaved') || 'Your rating has been submitted.');
+        showModalAlert(t('success'), t('ride.rateSaved'));
+        setDriverRate(0);
+        setDriverRateDesc('');
       } else {
-        Alert.alert(t('error') || 'Error', apiResponse.data?.error || (t('ride.rateFailed') || 'Failed to submit rating.'));
+        showModalAlert(t('errorTitle'), apiResponse.data?.error || t('ride.rateFailed'));
       }
     } catch (error: any) {
       console.error('Add Driver Rate Error:', error);
-      Alert.alert(t('error') || 'Error', t('ride.rateFailed') || 'Failed to submit rating.');
+      showModalAlert(t('errorTitle'), t('ride.rateFailed'));
     } finally {
       setSubmittingRate(false);
     }
@@ -430,14 +523,14 @@ export default function Ride() {
   const formatDuration = (minutes: number): string => {
     if (!minutes || minutes === 0) return '';
     if (minutes < 60) {
-      return `${minutes} ${t('home.minutes') || 'min'}`;
+      return `${minutes} ${t('home.minutes')}`;
     }
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     if (remainingMinutes === 0) {
-      return `${hours} ${t('home.hours') || 'hrs'}`;
+      return `${hours} ${t('home.hours')}`;
     }
-    return `${hours} ${t('home.hours') || 'hrs'} ${remainingMinutes} ${t('home.minutes') || 'min'}`;
+    return `${hours} ${t('home.hours')} ${remainingMinutes} ${t('home.minutes')}`;
   };
 
   if (loading) {
@@ -447,7 +540,7 @@ export default function Ride() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColors.primary} />
           <AppText
-            text={t('loading') || 'Loading...'}
+            text={t('loading')}
             size="small"
             styles={{ marginTop: 12, color: themeColors.gray }}
           />
@@ -462,7 +555,7 @@ export default function Ride() {
         <StatusBarApp />
         <View style={styles.emptyContainer}>
           <AppText
-            text={t('ride.notFound') || 'Ride not found'}
+            text={t('ride.notFound')}
             size="medium"
             styles={{ color: themeColors.gray, textAlign: 'center' }}
           />
@@ -480,8 +573,10 @@ export default function Ride() {
     ride.ride_status === 0;
   const canEditRide = isRideOwner && ride.ride_status === 0 && !ride.driver_id;
   const canCancelAccept = isRideDriver && ride.ride_status === 1; // Driver can unaccept if status is accepted
-  const canStartRide = isRideDriver && ride.ride_status === 1; // Driver can start if accepted
+  const canStartRide = isRideDriver && ride.ride_status === 1 && ride.client_accepted === 1; // Driver can start if accepted
   const canFinishRide = isRideDriver && ride.ride_status === 2; // Driver can finish if in progress
+  const canCustomerReady = isRideOwner && ride.ride_status === 1 && ride.client_accepted === 1 && ride.client_start_confirmed !== 1;
+  const canCustomerComplete = isRideOwner && ride.ride_status === 2;
   const rideStatus = ride?.ride_status ?? -1;
   // Only allow manual status changes while pending (0) by owner/admin.
   // For accepted (1): show only Start Ride and Cancel Accept.
@@ -497,521 +592,625 @@ export default function Ride() {
   const canEditPriceCurrency = (isRideOwner || isRideDriver) && ride.ride_status === 0;
   const canRateDriver = isRideOwner && ride.ride_status === 3 && !!ride.driver_id; // after completed
 
+  const showContactDriver = !isRideDriver && !!ride.driver_id && ride.driver_accepted === 1 && ride.client_accepted === 1 && ride.ride_price > 0 && ride.ride_status >= 1;
+  const showContactUser = (isRideDriver || isAdmin) && !isRideOwner && ride.client_accepted === 1 && ride.ride_status >= 1;
+  const showPendingMessage = isRideOwner && ride.ride_status === 0 && !ride.driver_id;
+
   return (
     <AppView style={styles.container}>
       <StatusBarApp />
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
-        keyboardShouldPersistTaps="handled"
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
       >
-        {/* Status Badge with Toolbar Actions */}
-        <View style={styles.statusToolbar}>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ride.ride_status) + '15' }]}>
-            <View style={[styles.statusDot, { backgroundColor: getStatusColor(ride.ride_status) }]} />
-            <AppText
-              size="normal"
-              bold
-              text={getStatusText(ride.ride_status)}
-              styles={{ color: getStatusColor(ride.ride_status) }}
-            />
-          </View>
-
-          {/* Toolbar Actions */}
-          <View style={styles.toolbarActions}>
-            {canAccept && (
-              <Pressable
-                onPress={handleAcceptRide}
-                disabled={isProcessing}
-                style={({ pressed }) => [
-                  styles.toolbarButtonWithText,
-                  {
-                    backgroundColor: themeColors.primary,
-                    opacity: pressed ? 0.7 : 1
-                  }
-                ]}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator color={themeColors.primaryForeground} size="small" />
-                ) : (
-                  <>
-                    <IconApp pack="FI" name="check" size={16} color={themeColors.primaryForeground} />
-                    <AppText size="small" bold text={t('ride.takeRide') || t('ride.acceptRide') || 'Take Ride'} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
-                  </>
-                )}
-              </Pressable>
-            )}
-
-            {canConfirmRide && (
-              <Pressable
-                onPress={handleConfirmRide}
-                disabled={isProcessing}
-                style={({ pressed }) => [
-                  styles.toolbarButtonWithText,
-                  {
-                    backgroundColor: '#34C759',
-                    opacity: pressed ? 0.7 : 1
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
-                <AppText size="small" bold text={t('ride.confirmRide') || 'Confirm Ride'} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
-              </Pressable>
-            )}
-
-            {canEditRide && (
-              <Pressable
-                onPress={handleEditRide}
-                disabled={isProcessing}
-                style={({ pressed }) => [
-                  styles.toolbarButtonWithText,
-                  {
-                    backgroundColor: themeColors.primary,
-                    opacity: pressed ? 0.7 : 1
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="edit" size={16} color={themeColors.primaryForeground} />
-                <AppText size="small" color='light' bold text={t('ride.editRide') || 'Edit Ride'} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
-              </Pressable>
-            )}
-
-            {canCancelAccept && (
-              <Pressable
-                onPress={handleCancelAcceptRide}
-                disabled={isProcessing}
-                style={({ pressed }) => [
-                  styles.toolbarButtonWithText,
-                  {
-                    backgroundColor: themeColors.error + '15',
-                    borderColor: themeColors.error,
-                    borderWidth: 1,
-                    opacity: pressed ? 0.7 : 1
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="x" size={16} color={themeColors.error} />
-                <AppText size="small" bold text={t('ride.cancelAcceptRide') || 'Cancel Accept'} styles={{ color: themeColors.error, marginLeft: 6 }} />
-              </Pressable>
-            )}
-
-            {canStartRide && (
-              <Pressable
-                onPress={handleStartRide}
-                disabled={isProcessing}
-                style={({ pressed }) => [
-                  styles.toolbarButtonWithText,
-                  {
-                    backgroundColor: themeColors.primary,
-                    opacity: pressed ? 0.7 : 1
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="play" size={16} color={themeColors.primaryForeground} />
-                <AppText size="small" bold text={t('ride.startRide') || 'Start Ride'} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
-              </Pressable>
-            )}
-
-            {canFinishRide && (
-              <Pressable
-                onPress={handleFinishRide}
-                disabled={isProcessing}
-                style={({ pressed }) => [
-                  styles.toolbarButtonWithText,
-                  {
-                    backgroundColor: '#34C759',
-                    opacity: pressed ? 0.7 : 1
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
-                <AppText size="small" bold text={t('ride.finishRide') || 'Finish Ride'} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
-              </Pressable>
-            )}
-
-            {canChangeStatus && (
-              <Pressable
-                onPress={() => {
-                  dispatch(setShowModalApp(true));
-                  setShowStatusModal(true);
-                }}
-                disabled={isProcessing}
-                style={({ pressed }) => [
-                  styles.toolbarButton,
-                  {
-                    backgroundColor: themeColors.primary + '15',
-                    borderColor: themeColors.primary,
-                    borderWidth: 1,
-                    opacity: pressed ? 0.7 : 1
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="edit" size={16} color={themeColors.primary} />
-              </Pressable>
-            )}
-          </View>
-        </View>
-
-        {/* Route Information */}
-        <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-          <AppText size="normal" bold text={t('ride.route') || 'Route'} styles={{ marginBottom: 12, color: themeColors.text }} />
-
-          <View style={styles.locationRow}>
-            <View style={[styles.locationIndicator, { backgroundColor: '#007AFF' }]} />
-            <View style={styles.locationContent}>
-              <AppText size="normal" bold text={t('home.from') || 'From'} styles={styles.label} />
-              <AppText size="normal" text={ride.start_location} styles={{ marginTop: 1 }} />
-            </View>
-          </View>
-
-          {ride.stops && ride.stops.length > 0 && (
-            <>
-              {ride.stops.map((stop, index) => (
-                <View key={index} style={styles.locationRow}>
-                  <View style={[styles.locationIndicator, { backgroundColor: '#FFA500' }]} />
-                  <View style={styles.locationContent}>
-                    <AppText size="normal" bold text={`${t('home.stop') || 'Stop'} ${index + 1}`} styles={styles.label} />
-                    <AppText size="normal" text={stop.address} styles={{ marginTop: 1 }} />
-                  </View>
-                </View>
-              ))}
-            </>
-          )}
-
-          <View style={styles.locationRow}>
-            <View style={[styles.locationIndicator, { backgroundColor: '#FF3B30' }]} />
-            <View style={styles.locationContent}>
-              <AppText size="normal" bold text={t('home.to') || 'To'} styles={styles.label} />
-              <AppText size="normal" text={ride.end_location} styles={{ marginTop: 1 }} />
-            </View>
-          </View>
-        </View>
-
-        {/* Contact Information */}
-        {(driverInfo && !isRideDriver) && (
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <AppText size="normal" bold text={t('ride.contactDriver') || 'Contact Driver'} styles={{ marginBottom: 12, color: themeColors.text }} />
-
-            {loadingContact ? (
-              <ActivityIndicator size="small" color={themeColors.primary} />
-            ) : (
-              <>
-                {driverInfo && (
-                  <>
-                    <AppText size="small" bold text={driverInfo.names || ''} styles={{ marginBottom: 12, color: themeColors.text }} />
-
-                    {getContactPhones(driverInfo).length > 0 && (
-                      <View style={styles.contactSection}>
-                        {getContactPhones(driverInfo).map((phone, index) => (
-                          <Pressable
-                            key={index}
-                            onPress={() => handleCall(phone)}
-                            style={({ pressed }) => [
-                              styles.contactItem,
-                              {
-                                backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                                opacity: pressed ? 0.7 : 1,
-                              }
-                            ]}
-                          >
-                            <IconApp pack="FI" name="phone" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
-                            <AppText size="normal" text={phone} styles={{ color: themeColors.text, flex: 1 }} />
-                            <IconApp pack="FI" name="chevron-right" size={14} color={themeColors.gray} />
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-
-                    {getContactEmails(driverInfo).length > 0 && (
-                      <View style={styles.contactSection}>
-                        {getContactEmails(driverInfo).map((email, index) => (
-                          <View
-                            key={index}
-                            style={[
-                              styles.contactItem,
-                              {
-                                backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                              }
-                            ]}
-                          >
-                            <IconApp pack="FI" name="mail" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
-                            <AppText size="normal" text={email} styles={{ color: themeColors.text, flex: 1 }} />
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    {getContactPhones(driverInfo).length === 0 && getContactEmails(driverInfo).length === 0 && (
-                      <AppText size="small" text={t('ride.noContactInfo') || 'No contact information available'} styles={{ color: themeColors.gray, fontStyle: 'italic' }} />
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </View>
-        )}
-
-        {(userInfo || (ride.user_id && ride.user_id === userData?._id)) && (isDriver || isAdmin) && (
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <AppText size="normal" bold text={t('ride.contactUser') || 'Contact User'} styles={{ marginBottom: 12, color: themeColors.text }} />
-
-            {loadingContact ? (
-              <ActivityIndicator size="small" color={themeColors.primary} />
-            ) : (
-              <>
-                {userInfo && (
-                  <>
-                    <AppText size="small" bold text={userInfo.names || ''} styles={{ marginBottom: 12, color: themeColors.text }} />
-
-                    {getContactPhones(userInfo).length > 0 && (
-                      <View style={styles.contactSection}>
-                        {getContactPhones(userInfo).map((phone, index) => (
-                          <Pressable
-                            key={index}
-                            onPress={() => handleCall(phone)}
-                            style={({ pressed }) => [
-                              styles.contactItem,
-                              {
-                                backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                                opacity: pressed ? 0.7 : 1,
-                              }
-                            ]}
-                          >
-                            <IconApp pack="FI" name="phone" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
-                            <AppText size="normal" text={phone} styles={{ color: themeColors.text, flex: 1 }} />
-                            <IconApp pack="FI" name="chevron-right" size={14} color={themeColors.gray} />
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-
-                    {getContactEmails(userInfo).length > 0 && (
-                      <View style={styles.contactSection}>
-                        {getContactEmails(userInfo).map((email, index) => (
-                          <View
-                            key={index}
-                            style={[
-                              styles.contactItem,
-                              {
-                                backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                              }
-                            ]}
-                          >
-                            <IconApp pack="FI" name="mail" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
-                            <AppText size="normal" text={email} styles={{ color: themeColors.text, flex: 1 }} />
-                          </View>
-                        ))}
-                      </View>
-                    )}
-
-                    {getContactPhones(userInfo).length === 0 && getContactEmails(userInfo).length === 0 && (
-                      <AppText size="small" text={t('ride.noContactInfo') || 'No contact information available'} styles={{ color: themeColors.gray, fontStyle: 'italic' }} />
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </View>
-        )}
-
-        {/* Ride Details */}
-        <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-          <AppText size="normal" bold text={t('ride.details') || 'Ride Details'} styles={{ marginBottom: 12, color: themeColors.text }} />
-
-          <View style={styles.detailsGrid}>
-            {ride.distance > 0 && (
-              <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
-                <IconApp pack="FI" name="map" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
-                <AppText size="small" text={t('home.km') || 'Distance'} styles={{ opacity: 0.7, marginBottom: 2 }} />
-                <AppText size="normal" bold text={`${ride.distance.toFixed(1)} ${t('home.km') || 'km'}`} />
-              </View>
-            )}
-
-            {ride.estimated_duration > 0 && (
-              <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
-                <IconApp pack="FI" name="clock" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
-                <AppText size="small" text={t('home.duration') || 'Duration'} styles={{ opacity: 0.7, marginBottom: 2 }} />
-                <AppText size="normal" bold text={formatDuration(ride.estimated_duration)} />
-              </View>
-            )}
-
-            {ride.ride_price > 0 && (
-              <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
-                <IconApp pack="FI" name="dollar-sign" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
-                <AppText size="small" text={t('ride.price') || 'Price'} styles={{ opacity: 0.7, marginBottom: 2 }} />
-                <AppText size="normal" bold text={formatCurrency(ride.ride_price, ride.ride_currency || 0)} />
-              </View>
-            )}
-          </View>
-
-          <View style={styles.timeContainer}>
-            <View style={styles.timeRow}>
-              <IconApp pack="FI" name="calendar" size={14} color={themeColors.gray} styles={{ marginRight: 8 }} />
-              <View style={{ flex: 1 }}>
-                <AppText size="small" text={t('history.startTime') || 'Start Time'} styles={{ opacity: 0.7, marginBottom: 1 }} />
-                <AppText size="normal" text={formatDate(ride.start_time)} />
-              </View>
-            </View>
-
-            {ride.end_time && (
-              <View style={[styles.timeRow, { marginTop: 8 }]}>
-                <IconApp pack="FI" name="calendar" size={14} color={themeColors.gray} styles={{ marginRight: 8 }} />
-                <View style={{ flex: 1 }}>
-                  <AppText size="small" text={t('history.endTime') || 'End Time'} styles={{ opacity: 0.7, marginBottom: 1 }} />
-                  <AppText size="normal" text={formatDate(ride.end_time)} />
-                </View>
-              </View>
-            )}
-          </View>
-
-          {/* Package & Carpooling info */}
-          <View style={{ borderTopWidth: 1, borderTopColor: theme === 'light' ? '#F2F2F7' : '#2C2C2E', marginTop: 12, paddingTop: 12, gap: 10 }}>
-            {/* Package info */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <IconApp pack="FI" name="box" size={16} color={ride.with_package === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
-              <View style={{ flex: 1 }}>
-                <AppText size="small" text={t('home.packageOptions') || 'Package (Parcel)'} styles={{ opacity: 0.7, marginBottom: 1 }} />
-                {ride.with_package === 1 ? (
-                  <AppText size="normal" bold text={`${ride.package_weight || 0} kg${ride.package_description ? ` (${ride.package_description})` : ''}`} />
-                ) : (
-                  <AppText size="normal" text={t('home.noPackage') || 'No package'} styles={{ color: themeColors.gray }} />
-                )}
-              </View>
-            </View>
-
-            {/* Carpooling info */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <IconApp pack="FI" name="users" size={16} color={ride.carpooling === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
-              <View style={{ flex: 1 }}>
-                <AppText size="small" text={t('home.allowCarpooling') || 'Carpooling'} styles={{ opacity: 0.7, marginBottom: 1 }} />
-                <AppText
-                  size="normal"
-                  bold
-                  text={ride.carpooling === 1 ? (t('home.carpoolingAllowed') || 'Allowed') : (t('home.carpoolingNotAllowed') || 'Not Allowed')}
-                  styles={{ color: ride.carpooling === 1 ? themeColors.primary : themeColors.gray }}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Payment Method */}
-        {canChangePayment && (
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <View style={styles.sectionHeader}>
-              <AppText size="normal" bold text={t('ride.paymentMethod') || 'Payment Method'} styles={{ color: themeColors.text }} />
-              <Pressable
-                onPress={() => {
-                  setSelectedPaymentMethod(ride.ride_payment_method);
-                  dispatch(setShowModalApp(true));
-                  setShowPaymentModal(true);
-                }}
-                style={({ pressed }) => [
-                  styles.editIconButton,
-                  { opacity: pressed ? 0.7 : 1 }
-                ]}
-              >
-                <IconApp pack="FI" name="edit-2" size={16} color={themeColors.primary} />
-              </Pressable>
-            </View>
-            <View style={[styles.paymentBadge, { backgroundColor: themeColors.primary + '10' }]}>
-              <IconApp pack="FI" name={ride.ride_payment_method === 0 ? "dollar-sign" : "credit-card"} size={14} color={themeColors.primary} styles={{ marginRight: 6 }} />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primary]} tintColor={themeColors.primary} />
+          }
+        >
+          {/* Status Badge with Toolbar Actions */}
+          <View style={styles.statusToolbar}>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ride.ride_status) + '15' }]}>
+              <View style={[styles.statusDot, { backgroundColor: getStatusColor(ride.ride_status) }]} />
               <AppText
                 size="normal"
                 bold
-                text={ride.ride_payment_method === 0 ? (t('confirmRide.cash') || 'Cash') : (t('confirmRide.online') || 'Online')}
-                styles={{ color: themeColors.primary }}
+                text={getStatusText(ride.ride_status)}
+                styles={{ color: getStatusColor(ride.ride_status) }}
               />
             </View>
-          </View>
-        )}
 
-        {/* Price Display (if set) */}
-        {ride.ride_price > 0 && (
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <View style={styles.sectionHeader}>
-              <AppText size="normal" bold text={t('ride.price') || 'Price'} styles={{ color: themeColors.text }} />
-            </View>
-            <View style={[styles.paymentBadge, { backgroundColor: themeColors.primary + '10' }]}>
-              <IconApp pack="FI" name="dollar-sign" size={14} color={themeColors.primary} styles={{ marginRight: 6 }} />
-              <AppText
-                size="normal"
-                bold
-                text={formatCurrency(ride.ride_price, ride.ride_currency || 0)}
-                styles={{ color: themeColors.primary }}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Driver Rating (after completion by ride owner) */}
-        {canRateDriver && (
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <AppText size="normal" bold text={t('ride.rateDriver') || 'Rate your driver'} styles={{ marginBottom: 12, color: themeColors.text }} />
-            <View style={styles.starsRow}>
-              {[1, 2, 3, 4, 5].map((n) => (
+            {/* Toolbar Actions */}
+            <View style={styles.toolbarActions}>
+              {canAccept && (
                 <Pressable
-                  key={n}
-                  onPress={() => setDriverRate(n)}
+                  onPress={handleAcceptRide}
+                  disabled={isProcessing}
                   style={({ pressed }) => [
-                    styles.starButton,
-                    { opacity: pressed ? 0.7 : 1 }
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
                   ]}
                 >
-                  <IconApp
-                    pack="FI"
-                    name="star"
-                    size={22}
-                    color={n <= driverRate ? '#FFD700' : themeColors.gray}
-                  />
+                  {isProcessing ? (
+                    <ActivityIndicator color={themeColors.primaryForeground} size="small" />
+                  ) : (
+                    <>
+                      <IconApp pack="FI" name="check" size={16} color={themeColors.primaryForeground} />
+                      <AppText size="small" color={themeColors.primaryForeground} bold text={t('ride.takeRide') || t('ride.acceptRide')} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                    </>
+                  )}
                 </Pressable>
-              ))}
+              )}
+
+              {canConfirmRide && (
+                <Pressable
+                  onPress={handleConfirmRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: '#34C759',
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
+                  <AppText size="small" bold text={t('ride.confirmRide')} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canEditRide && (
+                <Pressable
+                  onPress={handleEditRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="edit" size={16} color={themeColors.primaryForeground} />
+                  <AppText size="small" color='light' bold text={t('ride.editRide')} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canCancelAccept && (
+                <Pressable
+                  onPress={handleCancelAcceptRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.error + '15',
+                      borderColor: themeColors.error,
+                      borderWidth: 1,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="x" size={16} color={themeColors.error} />
+                  <AppText size="small" bold text={t('ride.cancelAcceptRide')} styles={{ color: themeColors.error, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canStartRide && (
+                <Pressable
+                  onPress={handleStartRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="play" size={16} color={themeColors.primaryForeground} />
+                  <AppText size="small" bold text={t('ride.startRide')} color={themeColors.primaryForeground} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canFinishRide && (
+                <Pressable
+                  onPress={handleFinishRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: '#34C759',
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
+                  <AppText size="small" bold text={t('ride.endRide') || t('ride.finishRide')} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canCustomerReady && (
+                <Pressable
+                  onPress={handleConfirmReadyToStart}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="play" size={16} color={themeColors.primaryForeground} />
+                  <AppText size="small" bold text={t('ride.readyToBegin')} color={themeColors.primaryForeground} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {isRideOwner && ride.ride_status === 1 && ride.client_start_confirmed === 1 && (
+                <View style={[styles.statusBadge, { backgroundColor: '#34C75915' }]}>
+                  <IconApp pack="FI" name="clock" size={14} color="#34C759" styles={{ marginRight: 6 }} />
+                  <AppText size="small" bold text={t('ride.waitingForDriver')} styles={{ color: '#34C759' }} />
+                </View>
+              )}
+
+              {canCustomerComplete && (
+                <Pressable
+                  onPress={handleFinishRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: '#34C759',
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
+                  <AppText size="small" bold text={t('ride.confirmCompletion')} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canChangeStatus && (
+                <Pressable
+                  onPress={() => {
+                    dispatch(setShowModalApp(true));
+                    setShowStatusModal(true);
+                  }}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButton,
+                    {
+                      backgroundColor: themeColors.primary + '15',
+                      borderColor: themeColors.primary,
+                      borderWidth: 1,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="edit" size={16} color={themeColors.primary} />
+                </Pressable>
+              )}
             </View>
-            <View style={{ marginTop: 12 }}>
-              <TextInput
-                value={driverRateDesc}
-                onChangeText={setDriverRateDesc}
-                placeholder={t('ride.rateDescriptionPlaceholder') || 'Share details about your experience (optional)'}
-                placeholderTextColor={themeColors.gray}
-                multiline
-                numberOfLines={4}
-                style={[
-                  styles.priceInput,
-                  {
-                    color: themeColors.text,
-                    backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
-                    borderColor: themeColors.border,
-                    minHeight: 100,
-                    textAlignVertical: 'top'
-                  }
-                ]}
-              />
-            </View>
-            <Pressable
-              onPress={submitDriverRate}
-              disabled={submittingRate}
-              style={({ pressed }) => [
-                styles.toolbarButtonWithText,
+          </View>
+
+          {showPendingMessage && (
+            <View
+              style={[
+                // styles.card,
                 {
-                  backgroundColor: themeColors.primary,
-                  alignSelf: 'flex-start',
-                  marginTop: 12,
-                  opacity: pressed || submittingRate ? 0.7 : 1
+                  backgroundColor: themeColors.success + '20',
+                  borderColor: themeColors.success + '30',
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  padding: 14,
+                  marginBottom: 12,
+                  gap: 10,
+                  borderWidth: 1,
+                  // elevation: 1,
+                  shadowRadius: 4,
+                  borderRadius: 15
                 }
               ]}
             >
-              {submittingRate ? (
-                <ActivityIndicator color={themeColors.primaryForeground} size="small" />
+              <IconApp pack="FI" name="info" size={20} color={themeColors.primary} styles={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <AppText
+                  size="normal"
+                  bold
+                  text={t('ride.pendingStatusTitle')}
+                  styles={{ color: themeColors.primary, marginBottom: 4 }}
+                />
+                <AppText
+                  size="small"
+                  text={t('ride.pendingStatusDescription')}
+                  styles={{ color: themeColors.text, opacity: 0.8, lineHeight: 18 }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Route Information */}
+          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+            <AppText size="normal" bold text={t('ride.route')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+            <View style={styles.locationRow}>
+              <View style={[styles.locationIndicator, { backgroundColor: '#007AFF' }]} />
+              <View style={styles.locationContent}>
+                <AppText size="normal" bold text={t('home.from')} styles={styles.label} />
+                <AppText size="normal" text={ride.start_location} styles={{ marginTop: 1 }} />
+              </View>
+            </View>
+
+            {ride.stops && ride.stops.length > 0 && (
+              <>
+                {ride.stops.map((stop, index) => (
+                  <View key={index} style={styles.locationRow}>
+                    <View style={[styles.locationIndicator, { backgroundColor: '#FFA500' }]} />
+                    <View style={styles.locationContent}>
+                      <AppText size="normal" bold text={`${t('home.stop')} ${index + 1}`} styles={styles.label} />
+                      <AppText size="normal" text={stop.address} styles={{ marginTop: 1 }} />
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+
+            <View style={styles.locationRow}>
+              <View style={[styles.locationIndicator, { backgroundColor: '#FF3B30' }]} />
+              <View style={styles.locationContent}>
+                <AppText size="normal" bold text={t('home.to')} styles={styles.label} />
+                <AppText size="normal" text={ride.end_location} styles={{ marginTop: 1 }} />
+              </View>
+            </View>
+          </View>
+
+          {/* Contact Information */}
+          {showContactDriver && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <AppText size="normal" bold text={t('ride.contactDriver')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+              {loadingContact ? (
+                <ActivityIndicator size="small" color={themeColors.primary} />
               ) : (
                 <>
-                  <IconApp pack="FI" name="send" size={16} color={themeColors.primaryForeground} />
-                  <AppText size="small" bold text={t('ride.submitRate') || 'Submit rating'} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                  {driverInfo && (
+                    <>
+                      <AppText size="small" bold text={driverInfo.names || ''} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+                      {getContactPhones(driverInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactPhones(driverInfo).map((phone, index) => (
+                            <Pressable
+                              key={index}
+                              onPress={() => handleCall(phone)}
+                              style={({ pressed }) => [
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                  opacity: pressed ? 0.7 : 1,
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="phone" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={phone} styles={{ color: themeColors.text, flex: 1 }} />
+                              <IconApp pack="FI" name="chevron-right" size={14} color={themeColors.gray} />
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactEmails(driverInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactEmails(driverInfo).map((email, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="mail" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={email} styles={{ color: themeColors.text, flex: 1 }} />
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactPhones(driverInfo).length === 0 && getContactEmails(driverInfo).length === 0 && (
+                        <AppText size="small" text={t('ride.noContactInfo')} styles={{ color: themeColors.gray, fontStyle: 'italic' }} />
+                      )}
+                    </>
+                  )}
                 </>
               )}
-            </Pressable>
+            </View>
+          )}
+
+          {showContactUser && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <AppText size="normal" bold text={t('ride.contactUser')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+              {loadingContact ? (
+                <ActivityIndicator size="small" color={themeColors.primary} />
+              ) : (
+                <>
+                  {userInfo && (
+                    <>
+                      <AppText size="small" bold text={userInfo.names || ''} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+                      {getContactPhones(userInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactPhones(userInfo).map((phone, index) => (
+                            <Pressable
+                              key={index}
+                              onPress={() => handleCall(phone)}
+                              style={({ pressed }) => [
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                  opacity: pressed ? 0.7 : 1,
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="phone" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={phone} styles={{ color: themeColors.text, flex: 1 }} />
+                              <IconApp pack="FI" name="chevron-right" size={14} color={themeColors.gray} />
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactEmails(userInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactEmails(userInfo).map((email, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="mail" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={email} styles={{ color: themeColors.text, flex: 1 }} />
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactPhones(userInfo).length === 0 && getContactEmails(userInfo).length === 0 && (
+                        <AppText size="small" text={t('ride.noContactInfo')} styles={{ color: themeColors.gray, fontStyle: 'italic' }} />
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+
+          {/* Security Verification Code for Customer */}
+          {isRideOwner && !!ride.driver_id && ride.driver_accepted === 1 && ride.ride_price > 0 && (ride.ride_status === 0 || ride.ride_status === 1) && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: themeColors.primary }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <IconApp pack="FI" name="shield" size={18} color={themeColors.primary} styles={{ marginRight: 8 }} />
+                <AppText size="normal" bold text={t('ride.verificationCodeTitle')} styles={{ color: themeColors.text }} />
+              </View>
+              <AppText size="small" text={t('ride.verificationCodeDesc')} styles={{ color: themeColors.gray, marginBottom: 12, lineHeight: 18 }} />
+              <View style={{ alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, backgroundColor: themeColors.primary + '10', borderWidth: 1, borderStyle: 'dashed', borderColor: themeColors.primary }}>
+                <AppText size="xlarge" bold text={ride.start_otp || ride._id.slice(-4).toUpperCase()} styles={{ color: themeColors.primary, letterSpacing: 4 }} />
+              </View>
+            </View>
+          )}
+
+          {/* Ride Details */}
+          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+            <AppText size="normal" bold text={t('ride.details')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+            <View style={styles.detailsGrid}>
+              {ride.distance > 0 && (
+                <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
+                  <IconApp pack="FI" name="map" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
+                  <AppText size="small" text={t('home.km')} styles={{ opacity: 0.7, marginBottom: 2 }} />
+                  <AppText size="normal" bold text={`${ride.distance.toFixed(1)} ${t('home.km')}`} />
+                </View>
+              )}
+
+              {ride.estimated_duration > 0 && (
+                <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
+                  <IconApp pack="FI" name="clock" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
+                  <AppText size="small" text={t('home.duration')} styles={{ opacity: 0.7, marginBottom: 2 }} />
+                  <AppText size="normal" bold text={formatDuration(ride.estimated_duration)} />
+                </View>
+              )}
+
+              {ride.ride_price > 0 && (
+                <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
+                  <IconApp pack="FI" name="dollar-sign" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
+                  <AppText size="small" text={t('ride.price')} styles={{ opacity: 0.7, marginBottom: 2 }} />
+                  <AppText size="normal" bold text={formatCurrency(ride.ride_price, ride.ride_currency || 0)} />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.timeContainer}>
+              <View style={styles.timeRow}>
+                <IconApp pack="FI" name="calendar" size={14} color={themeColors.gray} styles={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <AppText size="small" text={t('history.startTime')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                  <AppText size="normal" text={formatDate(ride.start_time)} />
+                </View>
+              </View>
+
+              {ride.end_time && (
+                <View style={[styles.timeRow, { marginTop: 8 }]}>
+                  <IconApp pack="FI" name="calendar" size={14} color={themeColors.gray} styles={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <AppText size="small" text={t('history.endTime')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                    <AppText size="normal" text={formatDate(ride.end_time)} />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Package & Carpooling info */}
+            <View style={{ borderTopWidth: 1, borderTopColor: theme === 'light' ? '#F2F2F7' : '#2C2C2E', marginTop: 12, paddingTop: 12, gap: 10 }}>
+              {/* Package info */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <IconApp pack="FI" name="box" size={16} color={ride.with_package === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <AppText size="small" text={t('home.packageOptions')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                  {ride.with_package === 1 ? (
+                    <AppText size="normal" bold text={`${ride.package_weight || 0} kg${ride.package_description ? ` (${ride.package_description})` : ''}`} />
+                  ) : (
+                    <AppText size="normal" bold text={t('home.noPackage')} styles={{ color: themeColors.gray }} />
+                  )}
+                </View>
+              </View>
+
+              {/* Carpooling info */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <IconApp pack="FI" name="users" size={16} color={ride.carpooling === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <AppText size="small" text={t('home.allowCarpooling')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                  <AppText
+                    size="normal"
+                    bold
+                    text={ride.carpooling === 1 ? (t('home.carpoolingAllowed')) : (t('home.carpoolingNotAllowed'))}
+                    styles={{ color: ride.carpooling === 1 ? themeColors.primary : themeColors.gray }}
+                  />
+                </View>
+              </View>
+            </View>
           </View>
-        )}
-      </ScrollView>
+
+          {/* Payment Method */}
+          {canChangePayment && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <View style={styles.sectionHeader}>
+                <AppText size="normal" bold text={t('ride.paymentMethod')} styles={{ color: themeColors.text }} />
+                <Pressable
+                  onPress={() => {
+                    setSelectedPaymentMethod(ride.ride_payment_method);
+                    dispatch(setShowModalApp(true));
+                    setShowPaymentModal(true);
+                  }}
+                  style={({ pressed }) => [
+                    styles.editIconButton,
+                    { opacity: pressed ? 0.7 : 1 }
+                  ]}
+                >
+                  <IconApp pack="FI" name="edit-2" size={16} color={themeColors.primary} />
+                </Pressable>
+              </View>
+              <View style={[styles.paymentBadge, { backgroundColor: themeColors.primary + '10' }]}>
+                <IconApp pack="FI" name={ride.ride_payment_method === 0 ? "dollar-sign" : "credit-card"} size={14} color={themeColors.primary} styles={{ marginRight: 6 }} />
+                <AppText
+                  size="normal"
+                  bold
+                  text={ride.ride_payment_method === 0 ? (t('confirmRide.cash')) : (t('confirmRide.online'))}
+                  styles={{ color: themeColors.primary }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Price Display (if set) */}
+          {ride.ride_price > 0 && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <View style={styles.sectionHeader}>
+                <AppText size="normal" bold text={t('ride.price')} styles={{ color: themeColors.text }} />
+              </View>
+              <View style={[styles.paymentBadge, { backgroundColor: themeColors.primary + '10' }]}>
+                <IconApp pack="FI" name="dollar-sign" size={14} color={themeColors.primary} styles={{ marginRight: 6 }} />
+                <AppText
+                  size="normal"
+                  bold
+                  text={formatCurrency(ride.ride_price, ride.ride_currency || 0)}
+                  styles={{ color: themeColors.primary }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Driver Rating (after completion by ride owner) */}
+          {canRateDriver && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <AppText size="normal" bold text={t('ride.rateDriver')} styles={{ marginBottom: 12, color: themeColors.text }} />
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Pressable
+                    key={n}
+                    onPress={() => setDriverRate(n)}
+                    style={({ pressed }) => [
+                      styles.starButton,
+                      { opacity: pressed ? 0.7 : 1 }
+                    ]}
+                  >
+                    <IconApp
+                      pack={n <= driverRate ? "FA" : "FI"}
+                      name="star"
+                      size={22}
+                      color={n <= driverRate ? themeColors.primary : themeColors.gray}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+              <View style={{ marginTop: 12 }}>
+                <TextInput
+                  value={driverRateDesc}
+                  onChangeText={setDriverRateDesc}
+                  placeholder={t('ride.rateDescriptionPlaceholder')}
+                  placeholderTextColor={themeColors.gray}
+                  multiline
+                  numberOfLines={4}
+                  style={[
+                    styles.priceInput,
+                    {
+                      color: themeColors.text,
+                      backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
+                      borderColor: themeColors.border,
+                      minHeight: 100,
+                      textAlignVertical: 'top'
+                    }
+                  ]}
+                />
+              </View>
+              <Pressable
+                onPress={submitDriverRate}
+                disabled={submittingRate}
+                style={({ pressed }) => [
+                  styles.toolbarButtonWithText,
+                  {
+                    backgroundColor: themeColors.primary,
+                    alignSelf: 'flex-start',
+                    marginTop: 12,
+                    opacity: pressed || submittingRate ? 0.7 : 1
+                  }
+                ]}
+              >
+                {submittingRate ? (
+                  <ActivityIndicator color={themeColors.primaryForeground} size="small" />
+                ) : (
+                  <>
+                    <IconApp pack="FI" name="send" size={16} color={themeColors.primaryForeground} />
+                    <AppText size="small" bold text={t('ride.submitRate')} color={themeColors.primaryForeground} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                  </>
+                )}
+              </Pressable>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Status Change Modal */}
       {showStatusModal && (
@@ -1057,6 +1256,68 @@ export default function Ride() {
         </ModalApp>
       )}
 
+      {/* Alert modal */}
+      {modalConfig && (
+        <ModalApp
+          title={modalConfig.title}
+          description={modalConfig.description}
+          singleButton={true}
+          onClose={() => {
+            if (modalConfig.onClose) {
+              modalConfig.onClose();
+            }
+            setModalConfig(null);
+            dispatch(setShowModalApp(false));
+          }}
+        >
+          <View />
+        </ModalApp>
+      )}
+
+      {/* Confirm Ride Confirmation Modal */}
+      {showConfirmRideModal && (
+        <ModalApp
+          titleKey="ride.confirmRideTitle"
+          singleButton={false}
+          onClose={() => {
+            setShowConfirmRideModal(false);
+            dispatch(setShowModalApp(false));
+          }}
+          onAction={confirmConfirmRideAction}
+          textActionKey="confirm"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.confirmRidePrompt')}
+              styles={{ color: themeColors.text, textAlign: 'center' }}
+            />
+          </View>
+        </ModalApp>
+      )}
+
+      {/* Ready to Start Confirmation Modal */}
+      {showReadyToStartModal && (
+        <ModalApp
+          titleKey="ride.readyToBeginTitle"
+          singleButton={false}
+          onClose={() => {
+            setShowReadyToStartModal(false);
+            dispatch(setShowModalApp(false));
+          }}
+          onAction={confirmReadyToStartAction}
+          textActionKey="confirm"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.readyToBeginPrompt')}
+              styles={{ color: themeColors.text, textAlign: 'center' }}
+            />
+          </View>
+        </ModalApp>
+      )}
+
       {/* Cancel Ride Confirmation Modal */}
       {showCancelRideModal && (
         <ModalApp
@@ -1072,7 +1333,7 @@ export default function Ride() {
           <View style={styles.modalContent}>
             <AppText
               size="normal"
-              text={t('ride.cancelConfirm') || 'Are you sure you want to cancel this ride?'}
+              text={t('ride.cancelConfirm')}
               styles={{ color: themeColors.text, textAlign: 'center' }}
             />
           </View>
@@ -1094,9 +1355,65 @@ export default function Ride() {
           <View style={styles.modalContent}>
             <AppText
               size="normal"
-              text={t('ride.cancelAcceptConfirm') || 'Are you sure you want to cancel accepting this ride?'}
+              text={t('ride.cancelAcceptConfirm')}
               styles={{ color: themeColors.text, textAlign: 'center' }}
             />
+          </View>
+        </ModalApp>
+      )}
+
+      {/* Code Verification Modal */}
+      {showCodeVerificationModal && (
+        <ModalApp
+          title={t('ride.enterVerificationCode')}
+          singleButton={false}
+          onClose={() => {
+            setShowCodeVerificationModal(false);
+            dispatch(setShowModalApp(false));
+            setVerificationCodeInput('');
+            setCodeError('');
+          }}
+          onAction={handleVerifyCodeAndStart}
+          textActionKey="confirmRide.confirm"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.askClientForCode')}
+              styles={{ color: themeColors.text, textAlign: 'center', marginBottom: 16 }}
+            />
+            <TextInput
+              value={verificationCodeInput}
+              onChangeText={(text) => {
+                setVerificationCodeInput(text);
+                if (codeError) setCodeError('');
+              }}
+              placeholder="0000"
+              placeholderTextColor={themeColors.gray}
+              keyboardType="number-pad"
+              maxLength={6}
+              style={[
+                styles.priceInput,
+                {
+                  color: themeColors.text,
+                  backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
+                  borderColor: codeError ? (themeColors.error || '#FF3B30') : themeColors.border,
+                  textAlign: 'center',
+                  fontSize: 24,
+                  fontWeight: 'bold',
+                  letterSpacing: 8,
+                  width: '80%',
+                  alignSelf: 'center',
+                }
+              ]}
+            />
+            {codeError ? (
+              <AppText
+                size="small"
+                text={codeError}
+                styles={{ color: themeColors.error || '#FF3B30', marginTop: 10, textAlign: 'center' }}
+              />
+            ) : null}
           </View>
         </ModalApp>
       )}
@@ -1130,10 +1447,10 @@ const StatusChangeModal: React.FC<StatusChangeModalProps> = ({
 
   // Define all possible status options
   const allStatusOptions = [
-    { value: 0, label: t('rides.pending') || 'Pending' },
-    { value: 1, label: t('rides.accepted') || 'Accepted' },
-    { value: 2, label: t('rides.inProgress') || 'In Progress' },
-    { value: 3, label: t('rides.completed') || 'Completed' },
+    { value: 0, label: t('rides.pending') },
+    { value: 1, label: t('rides.accepted') },
+    { value: 2, label: t('rides.inProgress') },
+    { value: 3, label: t('rides.completed') },
   ];
 
   // Filter valid next statuses based on current status and user role
@@ -1188,7 +1505,7 @@ const StatusChangeModal: React.FC<StatusChangeModalProps> = ({
         {validStatusOptions.length === 0 ? (
           <AppText
             size="normal"
-            text={t('ride.noStatusChange') || 'No status changes available'}
+            text={t('ride.noStatusChange')}
             styles={{
               color: themeColors.gray,
               textAlign: 'center',
@@ -1252,8 +1569,8 @@ const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({ currentMethod, 
   const { t } = useTranslation();
 
   const paymentOptions = [
-    { value: 0, label: t('confirmRide.cash') || 'Cash' },
-    { value: 1, label: t('confirmRide.online') || 'Online' },
+    { value: 0, label: t('confirmRide.cash') },
+    { value: 1, label: t('confirmRide.online') },
   ];
 
   return (

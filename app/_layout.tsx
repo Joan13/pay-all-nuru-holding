@@ -8,6 +8,7 @@ import React, { useEffect } from "react";
 import RNBootSplash from "react-native-bootsplash";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/es/integration/react";
+import { RideNotificationProvider } from "@/src/context/RideNotificationContext";
 // Initialize i18next before app renders
 import "@/src/lang/i18nextConfig";
 // import { TouchableOpacity } from "react-native";
@@ -74,7 +75,9 @@ export default function RootLayout() {
       <PersistGate loading={null} persistor={persistor}>
         <LanguageInitializer />
         <StatusBarApp />
-        <AppNavigation />
+        <RideNotificationProvider>
+          <AppNavigation />
+        </RideNotificationProvider>
       </PersistGate>
     </Provider>
   );

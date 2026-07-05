@@ -14,6 +14,14 @@ export interface ISwitchAppProps {
   onPress?: (nextValue: boolean) => void;
 }
 
+const normalizeColor = (color: string): string => {
+  if (!color) return color;
+  if (color.startsWith('#') && color.length === 4) {
+    return '#' + color[1] + color[1] + color[2] + color[2] + color[3] + color[3];
+  }
+  return color;
+};
+
 const SwitchApp: React.FC<ISwitchAppProps> = ({
   value,
   disabled,
@@ -34,18 +42,18 @@ const SwitchApp: React.FC<ISwitchAppProps> = ({
         onCheckedChange={onPress}
         value={value}
         colors={{
-          checkedThumbColor: themeColors.background,
-          checkedTrackColor: primaryColor,
-          uncheckedThumbColor: themeColors.background,
-          uncheckedTrackColor: themeColors.gray,
-          uncheckedBorderColor: themeColors.border,
+          checkedThumbColor: normalizeColor(themeColors.background),
+          checkedTrackColor: normalizeColor(primaryColor),
+          uncheckedThumbColor: normalizeColor(themeColors.background),
+          uncheckedTrackColor: normalizeColor(themeColors.gray),
+          uncheckedBorderColor: normalizeColor(themeColors.border),
 
-          disabledCheckedThumbColor: themeColors.background,
-          disabledCheckedTrackColor: themeColors.gray + "50",
+          disabledCheckedThumbColor: normalizeColor(themeColors.background),
+          disabledCheckedTrackColor: normalizeColor(themeColors.gray + "50"),
 
-          disabledUncheckedThumbColor: themeColors.background,
-          disabledUncheckedTrackColor: themeColors.gray + "50",
-          disabledUncheckedBorderColor: themeColors.gray + "50",
+          disabledUncheckedThumbColor: normalizeColor(themeColors.background),
+          disabledUncheckedTrackColor: normalizeColor(themeColors.gray + "50"),
+          disabledUncheckedBorderColor: normalizeColor(themeColors.gray + "50"),
         }}
         enabled={!disabled}
       />

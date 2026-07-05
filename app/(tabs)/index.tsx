@@ -1,3 +1,4 @@
+import AppButton from '@/src/components/app/AppButton';
 import IconApp from '@/src/components/app/IconApp';
 import SwitchApp from '@/src/components/app/SwitchApp';
 import AppText from '@/src/components/app/Text';
@@ -19,7 +20,8 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Modal
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import Animated, { FadeInDown, FadeInUp, FadeOutDown, FadeOutUp } from 'react-native-reanimated';
@@ -1016,6 +1018,54 @@ export default function Home() {
         backgroundColor="transparent"
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
       />
+      <Modal
+        visible={!userData?.city || userData.city.trim() === '' || userData.city.toLowerCase() === 'unknown'}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: theme === 'light' ? '#ffffff' : '#1c1c1e',
+            borderRadius: 16,
+            padding: 24,
+            width: '100%',
+            maxWidth: 320,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 10,
+          }}>
+            <IconApp pack="FI" name="map-pin" size={40} color={themeColors.primary} styles={{ marginBottom: 16 }} />
+            <AppText 
+              text={t('ride.cityModalTitle')}
+              size="medium"
+              bold
+              styles={{ color: themeColors.text, textAlign: 'center', marginBottom: 12 }}
+            />
+            <AppText 
+              text={t('ride.cityModalDescription')}
+              size="small"
+              styles={{ color: themeColors.gray, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}
+            />
+            <AppButton
+              title={t('continue')}
+              onPress={() => {
+                router.push('/UpdateUser');
+              }}
+              styles={{ width: '100%' }}
+            />
+          </View>
+        </View>
+      </Modal>
       {/* Map View */}
       <View style={styles.mapContainer}>
         {renderMap()}

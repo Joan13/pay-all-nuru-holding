@@ -42,12 +42,12 @@ const HistoryItem = ({ item, onEdit }: Props) => {
 
   const getStatusText = useCallback((status: number): string => {
     switch (status) {
-      case 0: return t('rides.pending') || 'Pending';
-      case 1: return t('rides.accepted') || 'Accepted';
-      case 2: return t('rides.inProgress') || 'In Progress';
-      case 3: return t('rides.completed') || 'Completed';
-      case 4: return t('rides.cancelled') || 'Cancelled';
-      default: return t('rides.unknown') || 'Unknown';
+      case 0: return t('rides.pending');
+      case 1: return t('rides.accepted');
+      case 2: return t('rides.inProgress');
+      case 3: return t('rides.completed');
+      case 4: return t('rides.cancelled');
+      default: return t('rides.unknown');
     }
   }, [t]);
 
@@ -87,7 +87,7 @@ const HistoryItem = ({ item, onEdit }: Props) => {
           <View style={styles.locationRow}>
             <View style={[styles.locationIndicator, { backgroundColor: '#007AFF' }]} />
             <View style={styles.locationContent}>
-              <AppText size="normal" bold text={t('home.from') || 'From'} styles={styles.label} />
+              <AppText size="normal" bold text={t('home.from')} styles={styles.label} />
               <AppText size="normal" text={item.start_location} numberLines={1} styles={{ marginTop: 1 }} />
             </View>
           </View>
@@ -99,7 +99,7 @@ const HistoryItem = ({ item, onEdit }: Props) => {
                 <View key={index} style={styles.locationRow}>
                   <View style={[styles.locationIndicator, { backgroundColor: '#FFA500' }]} />
                   <View style={styles.locationContent}>
-                    <AppText size="normal" bold text={`${t('home.stop') || 'Stop'} ${index + 1}`} styles={styles.label} />
+                    <AppText size="normal" bold text={`${t('home.stop')} ${index + 1}`} styles={styles.label} />
                     <AppText size="normal" text={stop.address} numberLines={1} styles={{ marginTop: 1 }} />
                   </View>
                 </View>
@@ -108,7 +108,7 @@ const HistoryItem = ({ item, onEdit }: Props) => {
                 <View style={styles.locationRow}>
                   <View style={[styles.locationIndicator, { backgroundColor: '#FFA500', opacity: 0.5 }]} />
                   <View style={styles.locationContent}>
-                    <AppText size="normal" bold text={`+${item.stops.length - 2} ${t('home.moreStops') || 'more stops'}`} styles={{ ...styles.label, opacity: 0.6 }} />
+                    <AppText size="normal" bold text={`+${item.stops.length - 2} ${t('home.moreStops')}`} styles={{ ...styles.label, opacity: 0.6 }} />
                   </View>
                 </View>
               )}
@@ -118,7 +118,7 @@ const HistoryItem = ({ item, onEdit }: Props) => {
           <View style={styles.locationRow}>
             <View style={[styles.locationIndicator, { backgroundColor: '#FF3B30' }]} />
             <View style={styles.locationContent}>
-              <AppText size="normal" bold text={t('home.to') || 'To'} styles={styles.label} />
+              <AppText size="normal" bold text={t('home.to')} styles={styles.label} />
               <AppText size="normal" text={item.end_location} numberLines={1} styles={{ marginTop: 1 }} />
             </View>
           </View>
@@ -133,7 +133,7 @@ const HistoryItem = ({ item, onEdit }: Props) => {
             {item.distance > 0 && (
               <View style={styles.footerItem}>
                 <IconApp pack="FI" name="map" size={12} color={themeColors.gray} styles={{ marginRight: 4 }} />
-                <AppText size="small" text={`${item.distance.toFixed(1)} ${t('home.km') || 'km'}`} styles={{ color: themeColors.gray }} />
+                <AppText size="small" text={`${item.distance.toFixed(1)} ${t('home.km')}`} styles={{ color: themeColors.gray }} />
               </View>
             )}
             <View style={styles.footerItem}>

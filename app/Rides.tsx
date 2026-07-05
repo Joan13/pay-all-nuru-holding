@@ -12,7 +12,6 @@ import { TRide } from '@/src/Types';
 import { FlashList } from '@shopify/flash-list';
 import axios from 'axios';
 import { BlurView } from 'expo-blur';
-import * as Location from 'expo-location';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +22,8 @@ import {
   RefreshControl,
   StyleSheet,
   TextInput,
-  View
+  View,
+  Modal
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -42,7 +42,7 @@ export default function Rides() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [userCity, setUserCity] = useState<string>('');
+
   const [modalError, setModalError] = useState<{ titleKey: string; descriptionKey: string } | null>(null);
   const [searchBarHeight, setSearchBarHeight] = useState(52);
 
@@ -54,9 +54,6 @@ export default function Rides() {
   }, [navigation, t]);
 
   useEffect(() => {
-    if (isDriver && !isAdmin) {
-      getCurrentCity();
-    }
     fetchRides();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -66,40 +63,20 @@ export default function Rides() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, rides]);
 
-  const getCurrentCity = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setUserCity(userData?.city || '');
-        return;
-      }
 
-      const location = await Location.getCurrentPositionAsync({});
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-      });
-
-      if (addresses && addresses.length > 0) {
-        setUserCity(addresses[0].city || userData?.city || '');
-      } else {
-        setUserCity(userData?.city || '');
-      }
-    } catch {
-      setUserCity(userData?.city || '');
-      setModalError({
-        titleKey: 'error.locationError',
-        descriptionKey: 'error.locationErrorDescription',
-      });
-      dispatch(setShowModalApp(true));
-    }
-  };
 
   const isDriver = userData?.account_type === 1;
   const isAdmin = userData?.account_type === 2 || userData?.is_admin === true;
 
   const fetchRides = async () => {
     if (!userData || !userData._id) {
+      setLoading(false);
+      return;
+    }
+
+    const isCityUnknown = !userData?.city || userData.city.trim() === '' || userData.city.toLowerCase() === 'unknown';
+    if (isCityUnknown) {
+      setRides([]);
       setLoading(false);
       return;
     }
@@ -131,11 +108,11 @@ export default function Rides() {
           dispatch(setShowModalApp(true));
         }
       } else if (isDriver) {
-        // Fetch available rides in the driver's current city
+        // Fetch available rides in the driver's city
         const getRidesUrl = `${remote_url}/payall/API/get_rides`;
         const apiResponse = await axios.post(getRidesUrl, {
           user_id: userData._id,
-          city: userCity,
+          city: userData.city, // Only show rides from the driver's city
           available_only: true, // Only get rides that are not completed
           driver_view: true, // Indicate this is for driver view
         }, {
@@ -145,9 +122,11 @@ export default function Rides() {
         });
 
         if (apiResponse.data && apiResponse.data.success === '1' && apiResponse.data.rides) {
-          // Filter to only show rides that are not completed (status 0, 1, or 2)
+          // Filter to only show rides that are not completed (status 0, 1, or 2) and not accepted by other drivers
           const availableRides = apiResponse.data.rides.filter((ride: TRide) => 
-            ride.ride_status !== 3 && ride.ride_status !== 4
+            ride.ride_status !== 3 && 
+            ride.ride_status !== 4 && 
+            (!ride.driver_id || ride.driver_id === userData?._id)
           );
           setRides(availableRides);
         } else {
@@ -433,7 +412,7 @@ export default function Rides() {
   const renderListHeader = () => (
     <>
       {/* City Info */}
-      {userCity && isDriver && !isAdmin && (
+      {userData?.city && isDriver && !isAdmin && (
         <View style={[
           styles.cityBadge,
           {
@@ -450,7 +429,7 @@ export default function Rides() {
             styles={{ marginRight: 8 }}
           />
           <AppText
-            text={`${t('rides.showingRidesIn')} ${userCity}`}
+            text={`${t('rides.showingRidesIn')} ${userData.city}`}
             size="small"
             styles={{ color: themeColors.text }}
           />
@@ -499,6 +478,55 @@ export default function Rides() {
   return (
     <AppView style={styles.container}>
       <StatusBarApp />
+
+      <Modal
+        visible={!userData?.city || userData.city.trim() === '' || userData.city.toLowerCase() === 'unknown'}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: theme === 'light' ? '#ffffff' : '#1c1c1e',
+            borderRadius: 16,
+            padding: 24,
+            width: '100%',
+            maxWidth: 320,
+            alignItems: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 10,
+          }}>
+            <IconApp pack="FI" name="map-pin" size={40} color={themeColors.primary} styles={{ marginBottom: 16 }} />
+            <AppText 
+              text={t('ride.cityModalTitle')}
+              size="medium"
+              bold
+              styles={{ color: themeColors.text, textAlign: 'center', marginBottom: 12 }}
+            />
+            <AppText 
+              text={t('ride.cityModalDescription')}
+              size="small"
+              styles={{ color: themeColors.gray, textAlign: 'center', marginBottom: 24, lineHeight: 20 }}
+            />
+            <AppButton
+              title={t('continue')}
+              onPress={() => {
+                router.push('/UpdateUser');
+              }}
+              styles={{ width: '100%' }}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* Floating Search Bar - show when there is at least one ride */}
       {showSearch && (

@@ -27,6 +27,7 @@ export type TUserData = {
     car_model?: string, // Car model (for drivers)
     car_condition?: number, // Car condition: 0 = excellent, 1 = good/fair, 2 = poor/scrap (for drivers)
     license_plate?: string, // License plate number (for drivers)
+    notification_token?: string, // Push notification token
     createdAt: string,
     updatedAt: string
 }
@@ -62,7 +63,11 @@ export type TRide = {
     carpooling?: number,
     client_accepted?: number,
     driver_accepted?: number,
+    start_otp?: string,
+    client_start_confirmed?: number,
+    driver_start_confirmed?: number,
     createdAt: string,
     updatedAt: string
 }
+
 

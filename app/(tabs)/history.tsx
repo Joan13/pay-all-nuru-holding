@@ -125,7 +125,7 @@ export default function History() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColors.primary} />
           <AppText
-            text={t('loading') || 'Loading...'}
+            text={t('loading')}
             size="small"
             styles={{ marginTop: 12, color: themeColors.gray }}
           />

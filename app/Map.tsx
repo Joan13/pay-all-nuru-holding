@@ -39,7 +39,7 @@ const Map = () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       
       if (status !== 'granted') {
-        setError(t('map.locationPermissionDenied') || 'Location permission was denied. Please enable it in settings.');
+        setError(t('map.locationPermissionDenied'));
         setLoading(false);
         return;
       }
@@ -60,7 +60,7 @@ const Map = () => {
       setLoading(false);
     } catch (err) {
       console.error('Location Error:', err);
-      setError(t('map.locationError') || 'Failed to get your location. Please try again.');
+      setError(t('map.locationError'));
       setLoading(false);
     }
   };
@@ -87,8 +87,8 @@ const Map = () => {
     } catch (err) {
       console.error('Location Error:', err);
       Alert.alert(
-        t('map.locationError') || 'Error',
-        t('map.locationError') || 'Failed to get your location. Please try again.'
+        t('map.locationError'),
+        t('map.locationError')
       );
     }
   };

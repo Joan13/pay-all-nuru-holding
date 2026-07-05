@@ -14,9 +14,23 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-
 
 type DriverRate = {
   _id: string;
-  user_id: string;
-  ride_id: string;
-  driver_id: string;
+  rater_id?: {
+    _id: string;
+    names: string;
+    user_name?: string;
+  };
+  ride_id?: {
+    _id: string;
+    start_location: string;
+    end_location: string;
+    stops?: { address: string }[];
+    driver_id?: {
+      _id: string;
+      names: string;
+      user_name?: string;
+    };
+  };
+  rated_id?: string;
   description?: string;
   rate: number;
   rate_active: number;
@@ -57,7 +71,7 @@ export default function DriverRates() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: t('settings.viewRates') || 'Driver Rates',
+      title: t('settings.viewRates'),
       ...(Platform.OS === 'ios' ? { headerBackTitle: 'Settings' } : {}),
     });
   }, [navigation, t]);
@@ -76,7 +90,7 @@ export default function DriverRates() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={themeColors.primary} />
-          <AppText size="small" text={t('loading') || 'Loading...'} styles={{ marginTop: 10, color: themeColors.gray }} />
+          <AppText size="small" text={t('loading')} styles={{ marginTop: 10, color: themeColors.gray }} />
         </View>
       ) : rates.length === 0 ? (
         <View style={styles.center}>

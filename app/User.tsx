@@ -39,7 +39,7 @@ export default function User() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: t('admin.userDetails') || 'User Details',
+      title: t('admin.userDetails'),
     });
   }, [navigation, t]);
 
@@ -131,7 +131,7 @@ export default function User() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColors.primary} />
           <AppText
-            text={t('loading') || 'Loading...'}
+            text={t('loading')}
             size="small"
             styles={{ marginTop: 12, color: themeColors.gray }}
           />
@@ -146,7 +146,7 @@ export default function User() {
         <StatusBarApp />
         <View style={styles.emptyContainer}>
           <AppText
-            text={t('admin.userNotFound') || 'User not found'}
+            text={t('admin.userNotFound')}
             size="medium"
             styles={{ color: themeColors.gray, textAlign: 'center' }}
           />
@@ -174,20 +174,20 @@ export default function User() {
       >
         {/* Basic Information */}
         <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-          <AppText size="normal" bold text={t('updateUser.title') || 'Profile'} styles={{ marginBottom: 12, color: themeColors.text }} />
+          <AppText size="normal" bold text={t('updateUser.title')} styles={{ marginBottom: 12, color: themeColors.text }} />
           
           <View style={styles.infoRow}>
-            <AppText size="small" text={t('updateUser.names') || 'Full Name'} styles={styles.label} />
+            <AppText size="small" text={t('updateUser.names')} styles={styles.label} />
             <AppText size="normal" text={user.names} styles={{ color: themeColors.text }} />
           </View>
 
           <View style={styles.infoRow}>
-            <AppText size="small" text={t('updateUser.gender') || 'Gender'} styles={styles.label} />
+            <AppText size="small" text={t('updateUser.gender')} styles={styles.label} />
             <AppText size="normal" text={getGenderText(user.gender)} styles={{ color: themeColors.text }} />
           </View>
 
           <View style={styles.infoRow}>
-            <AppText size="small" text={t('admin.accountType') || 'Account Type'} styles={styles.label} />
+            <AppText size="small" text={t('admin.accountType')} styles={styles.label} />
             <View style={[styles.accountTypeBadge, { backgroundColor: themeColors.primary + '15' }]}>
               <AppText size="small" bold text={getAccountTypeText(user.account_type)} styles={{ color: themeColors.primary }} />
             </View>
@@ -195,14 +195,14 @@ export default function User() {
 
           {user.user_email && (
             <View style={styles.infoRow}>
-              <AppText size="small" text={t('updateUser.emails') || 'Email'} styles={styles.label} />
+              <AppText size="small" text={t('updateUser.emails')} styles={styles.label} />
               <AppText size="normal" text={user.user_email} styles={{ color: themeColors.text }} />
             </View>
           )}
 
           {user.user_emails && user.user_emails.length > 1 && (
             <View style={styles.infoRow}>
-              <AppText size="small" text={t('updateUser.emails') || 'Additional Emails'} styles={styles.label} />
+              <AppText size="small" text={t('updateUser.emails')} styles={styles.label} />
               <View>
                 {user.user_emails.slice(1).map((email, index) => (
                   <AppText key={index} size="normal" text={email} styles={{ color: themeColors.text, marginBottom: 4 }} />
@@ -213,7 +213,7 @@ export default function User() {
 
           {user.phone_numbers && user.phone_numbers.length > 0 && (
             <View style={styles.infoRow}>
-              <AppText size="small" text={t('updateUser.phoneNumbers') || 'Phone Numbers'} styles={styles.label} />
+              <AppText size="small" text={t('updateUser.phoneNumbers')} styles={styles.label} />
               <View>
                 {user.phone_numbers.map((phone, index) => (
                   <Pressable
@@ -234,28 +234,28 @@ export default function User() {
 
           {user.address && (
             <View style={styles.infoRow}>
-              <AppText size="small" text={t('updateUser.address') || 'Address'} styles={styles.label} />
+              <AppText size="small" text={t('updateUser.address')} styles={styles.label} />
               <AppText size="normal" text={user.address} styles={{ color: themeColors.text }} />
             </View>
           )}
 
           {user.city && (
             <View style={styles.infoRow}>
-              <AppText size="small" text={t('updateUser.city') || 'City'} styles={styles.label} />
+              <AppText size="small" text={t('updateUser.city')} styles={styles.label} />
               <AppText size="normal" text={user.city} styles={{ color: themeColors.text }} />
             </View>
           )}
 
           {user.state && (
             <View style={styles.infoRow}>
-              <AppText size="small" text={t('updateUser.state') || 'State'} styles={styles.label} />
+              <AppText size="small" text={t('updateUser.state')} styles={styles.label} />
               <AppText size="normal" text={user.state} styles={{ color: themeColors.text }} />
             </View>
           )}
 
           {user.country && (
             <View style={styles.infoRow}>
-              <AppText size="small" text={t('updateUser.country') || 'Country'} styles={styles.label} />
+              <AppText size="small" text={t('updateUser.country')} styles={styles.label} />
               <AppText size="normal" text={user.country} styles={{ color: themeColors.text }} />
             </View>
           )}
@@ -264,25 +264,25 @@ export default function User() {
         {/* Car Information (for drivers) */}
         {isDriver && (
           <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <AppText size="normal" bold text={t('updateUser.carInformation') || 'Car Information'} styles={{ marginBottom: 12, color: themeColors.text }} />
+            <AppText size="normal" bold text={t('updateUser.carInformation')} styles={{ marginBottom: 12, color: themeColors.text }} />
             
             {user.car_model && (
               <View style={styles.infoRow}>
-                <AppText size="small" text={t('updateUser.carModel') || 'Car Model'} styles={styles.label} />
+                <AppText size="small" text={t('updateUser.carModel')} styles={styles.label} />
                 <AppText size="normal" text={user.car_model} styles={{ color: themeColors.text }} />
               </View>
             )}
 
             {user.car_condition !== undefined && (
               <View style={styles.infoRow}>
-                <AppText size="small" text={t('updateUser.carCondition') || 'Car Condition'} styles={styles.label} />
+                <AppText size="small" text={t('updateUser.carCondition')} styles={styles.label} />
                 <AppText size="normal" text={getCarConditionText(user.car_condition)} styles={{ color: themeColors.text }} />
               </View>
             )}
 
             {user.license_plate && (
               <View style={styles.infoRow}>
-                <AppText size="small" text={t('updateUser.licensePlate') || 'License Plate'} styles={styles.label} />
+                <AppText size="small" text={t('updateUser.licensePlate')} styles={styles.label} />
                 <AppText size="normal" text={user.license_plate} styles={{ color: themeColors.text }} />
               </View>
             )}
@@ -303,7 +303,7 @@ export default function User() {
           ]}
         >
           <IconApp pack="FI" name="edit-2" size={18} color={themeColors.primaryForeground} styles={{ marginRight: 8 }} />
-          <AppText size="normal" bold text={t('updateUser.title') || 'Edit Profile'} styles={{ color: themeColors.primaryForeground }} />
+          <AppText size="normal" bold text={t('updateUser.title')} styles={{ color: themeColors.primaryForeground }} />
         </Pressable>
       </ScrollView>
     </AppView>

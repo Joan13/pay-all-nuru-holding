@@ -28,7 +28,7 @@ export default function Rate() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: t('rate.title') || 'Rate',
+      title: t('rate.title'),
     });
   }, [navigation, t]);
 
@@ -36,7 +36,7 @@ export default function Rate() {
     return (
       <AppView style={styles.container}>
         <View style={styles.center}>
-          <AppText size="normal" text={t('error') || 'Error'} styles={{ color: themeColors.error }} />
+          <AppText size="normal" text={t('error')} styles={{ color: themeColors.error }} />
         </View>
       </AppView>
     );
@@ -46,39 +46,68 @@ export default function Rate() {
   const created = rate.createdAt ? new Date(rate.createdAt) : null;
   const dateText = created ? created.toLocaleDateString() + ' ' + created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
+  const raterName = rate.rater_id && typeof rate.rater_id === 'object' ? rate.rater_id.names : 'Passenger';
+  const ride = rate.ride_id && typeof rate.ride_id === 'object' ? rate.ride_id : null;
+  const startLoc = ride?.start_location || '';
+  const endLoc = ride?.end_location || '';
+  const stops = ride?.stops || [];
+  const driverName = ride?.driver_id && typeof ride.driver_id === 'object' ? ride.driver_id.names : 'Driver';
+
   return (
     <AppView style={styles.container}>
       <View style={[styles.card, { backgroundColor: themeColors.background, borderColor: themeColors.border }]}>
         <View style={styles.header}>
-          <View style={styles.starsRow}>
-            {stars.map((on: boolean, idx: number) => (
-              <IconApp key={idx} pack="FI" name="star" size={18} color={on ? '#FFD700' : themeColors.gray} styles={{ marginRight: 6 }} />
-            ))}
+          <View>
+            <AppText size="normal" bold text={raterName} styles={{ color: themeColors.text }} />
+            <View style={styles.starsRow}>
+              {stars.map((on: boolean, idx: number) => (
+                <IconApp key={idx} pack={on ? "FA" : "FI"} name="star" size={16} color={on ? '#FFD700' : themeColors.gray} styles={{ marginRight: 4 }} />
+              ))}
+            </View>
           </View>
           {!!dateText && (
             <AppText size="small" text={dateText} styles={{ color: themeColors.gray }} />
           )}
         </View>
 
-        <View style={{ marginTop: 12 }}>
-          <AppText size="small" text="Ride ID" styles={{ color: themeColors.gray }} />
-          <AppText size="normal" text={rate.ride_id} styles={{ marginTop: 2 }} />
-        </View>
+        {ride ? (
+          <View style={styles.routeContainer}>
+            <AppText size="small" text="Route Details" styles={{ color: themeColors.gray, marginBottom: 8 }} />
+            {/* Departure */}
+            <View style={styles.routeRow}>
+              <View style={[styles.routeDot, { backgroundColor: '#007AFF' }]} />
+              <AppText size="small" text={startLoc} styles={{ color: themeColors.text, flex: 1 }} numberLines={1} />
+            </View>
 
-        <View style={{ marginTop: 12 }}>
-          <AppText size="small" text="From user" styles={{ color: themeColors.gray }} />
-          <AppText size="normal" text={rate.user_id} styles={{ marginTop: 2 }} />
-        </View>
+            {/* Stops */}
+            {stops.map((stop: any, index: number) => (
+              <View key={index} style={styles.routeRow}>
+                <View style={[styles.routeDot, { backgroundColor: '#FFA500' }]} />
+                <AppText size="small" text={stop.address} styles={{ color: themeColors.text, flex: 1 }} numberLines={1} />
+              </View>
+            ))}
 
-        <View style={{ marginTop: 12 }}>
-          <AppText size="small" text="Driver" styles={{ color: themeColors.gray }} />
-          <AppText size="normal" text={rate.driver_id} styles={{ marginTop: 2 }} />
-        </View>
+            {/* Destination */}
+            <View style={styles.routeRow}>
+              <View style={[styles.routeDot, { backgroundColor: '#FF3B30' }]} />
+              <AppText size="small" text={endLoc} styles={{ color: themeColors.text, flex: 1 }} numberLines={1} />
+            </View>
+          </View>
+        ) : null}
 
         {!!rate.description && (
           <View style={{ marginTop: 16 }}>
-            <AppText size="small" text={t('rate.description') || 'Description'} styles={{ color: themeColors.gray, marginBottom: 6 }} />
-            <AppText size="normal" text={rate.description} />
+            <AppText size="small" text={t('rate.description')} styles={{ color: themeColors.gray, marginBottom: 6 }} />
+            <View style={[styles.descriptionBox, { backgroundColor: themeColors.primary + '05', borderColor: themeColors.border }]}>
+              <AppText size="normal" text={rate.description} styles={{ fontStyle: 'italic' }} />
+            </View>
+          </View>
+        )}
+
+        {!!driverName && (
+          <View style={styles.driverContainer}>
+            <IconApp pack="FI" name="user" size={12} color={themeColors.gray} styles={{ marginRight: 6 }} />
+            <AppText size="small" text={`Driver: ${driverName}`} styles={{ color: themeColors.gray }} />
           </View>
         )}
       </View>
@@ -96,19 +125,59 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   card: {
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     margin: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    marginBottom: 16,
   },
   starsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
+  },
+  routeContainer: {
+    paddingLeft: 4,
+    borderLeftWidth: 1.5,
+    borderLeftColor: 'rgba(0,0,0,0.06)',
+    marginLeft: 8,
+    marginVertical: 12,
+    gap: 8,
+  },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 10,
+  },
+  routeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    position: 'absolute',
+    left: -4,
+  },
+  descriptionBox: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 0.5,
+  },
+  driverContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
 });
 

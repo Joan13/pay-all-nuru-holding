@@ -15,7 +15,17 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-
 export type ClientPoint = {
   _id: string;
   user_id: string;
-  ride_id: string;
+  ride_id: {
+    _id: string;
+    start_location: string;
+    end_location: string;
+    stops?: { address: string }[];
+    driver_id?: {
+      _id: string;
+      names: string;
+      user_name?: string;
+    };
+  } | string;
   points: number;
   points_active: number;
   createdAt?: string;
@@ -36,7 +46,7 @@ export default function FidelityPoints() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: t('settings.fidelityPoints') || 'Fidelity Points',
+      title: t('settings.fidelityPoints'),
       ...(Platform.OS === 'ios' ? { headerBackTitle: 'Settings' } : {}),
     });
   }, [navigation, t]);
@@ -80,7 +90,7 @@ export default function FidelityPoints() {
         <AppText
           size="small"
           bold
-          text={t('fidelityPoints.totalLabel') || 'Total points'}
+          text={t('fidelityPoints.totalLabel')}
           styles={{ color: '#FFFFFF', opacity: 0.85 }}
         />
         <AppText
@@ -94,7 +104,7 @@ export default function FidelityPoints() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={themeColors.primary} />
-          <AppText size="small" text={t('loading') || 'Loading...'} styles={{ marginTop: 10, color: themeColors.gray }} />
+          <AppText size="small" text={t('loading')} styles={{ marginTop: 10, color: themeColors.gray }} />
         </View>
       ) : points.length === 0 ? (
         <View style={styles.center}>

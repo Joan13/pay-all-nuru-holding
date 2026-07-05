@@ -43,7 +43,7 @@ export default function Users() {
 
   useEffect(() => {
     navigation.setOptions({
-      title: t('admin.users') || 'Users',
+      title: t('admin.users'),
     });
   }, [navigation, t]);
 

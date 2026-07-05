@@ -491,7 +491,7 @@ export default function Admin() {
                   ]}
                 >
                   <AppText
-                    text={t('admin.viewAllRides') || 'View All Rides'}
+                    text={t('admin.viewAllRides')}
                     size="normal"
                     bold
                     styles={{ color: themeColors.primaryForeground }}
@@ -587,7 +587,7 @@ export default function Admin() {
                   ]}
                 >
                   <AppText
-                    text={t('admin.viewAllUsers') || 'View All Users'}
+                    text={t('admin.viewAllUsers')}
                     size="normal"
                     bold
                     styles={{ color: themeColors.primaryForeground }}
