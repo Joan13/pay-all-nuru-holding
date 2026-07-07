@@ -57,11 +57,11 @@
     },
     "step2": {
       "title": "Suivez en Temps Réel",
-      "description": "Suivez l'approche de votre conducteur en temps réel. Sachez exactement quand il arrivera et suivez votre trajet en direct."
+      "description": "Suivez l'approche de votre chauffeur en temps réel. Sachez exactement quand il arrivera et suivez votre trajet en direct."
     },
     "step3": {
       "title": "Sécurisé & Fiable",
-      "description": "Voyagez en toute confiance. Tous nos conducteurs sont vérifiés et vos paiements sont sécurisés. Votre sécurité est notre priorité."
+      "description": "Voyagez en toute confiance. Tous nos chauffeurs sont vérifiés et vos paiements sont sécurisés. Votre sécurité est notre priorité."
     }
   },
   "home": {
@@ -108,7 +108,7 @@
     "packageWeightPlaceholder": "ex: 5",
     "packageDescription": "Description du colis (optionnel)",
     "packageDescriptionPlaceholder": "ex: Boîte contenant des vêtements",
-    "allowCarpooling": "Autoriser le conducteur à prendre d'autres passagers (Covoiturage)",
+    "allowCarpooling": "Autoriser le chauffeur à prendre d'autres passagers (Covoiturage)",
     "packageOptions": "Options Colis & Covoiturage",
     "packageDetails": "Détails du Colis",
     "carpoolingAllowed": "Covoiturage Autorisé",
@@ -304,7 +304,7 @@
     "userNotLoggedIn": "Vous devez être connecté pour créer un trajet.",
     "rideCreationFailed": "Échec de la création du trajet. Veuillez réessayer.",
     "rideCreatedSuccess": "Trajet créé avec succès !",
-    "rideCreatedSuccessDescription": "Votre trajet a été créé et attend qu'un conducteur l'accepte."
+    "rideCreatedSuccessDescription": "Votre trajet a été créé et attend qu'un chauffeur l'accepte."
   },
   "rides": {
     "title": "Courses Disponibles",
@@ -320,7 +320,9 @@
     "inProgress": "En Cours",
     "completed": "Terminée",
     "cancelled": "Annulée",
-    "unknown": "Inconnu"
+    "unknown": "Inconnu",
+    "awaitingYourConfirmation": "En attente de votre confirmation",
+    "awaitingClientConfirmation": "En attente de la confirmation du passager"
   },
   "rate": {
     "title": "Détails de l'Évaluation",

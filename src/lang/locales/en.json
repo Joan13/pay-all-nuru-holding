@@ -320,7 +320,9 @@
     "inProgress": "In Progress",
     "completed": "Completed",
     "cancelled": "Cancelled",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "awaitingYourConfirmation": "Awaiting Your Confirmation",
+    "awaitingClientConfirmation": "Awaiting Passenger Confirmation"
   },
   "rate": {
     "title": "Rating Details",

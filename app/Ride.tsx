@@ -11,6 +11,7 @@ import { TRide, TUserData } from '@/src/Types';
 import axios from 'axios';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
+import * as Notifications from 'expo-notifications';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -78,6 +79,23 @@ export default function Ride() {
   const isAdmin = userData?.account_type === 2 || userData?.is_admin === true;
   const isRideOwner = !!ride && (ride.user_id === userData?._id);
   const isRideDriver = !!ride && (ride.driver_id === userData?._id);
+
+  useEffect(() => {
+    if (!rideId) return;
+    const dismissRideNotifications = async () => {
+      try {
+        const presented = await Notifications.getPresentedNotificationsAsync();
+        for (const notification of presented) {
+          if (notification.request.content.data?.rideId === rideId) {
+            await Notifications.dismissNotificationAsync(notification.request.identifier);
+          }
+        }
+      } catch (error) {
+        console.log('Error clearing notifications for ride:', error);
+      }
+    };
+    dismissRideNotifications();
+  }, [rideId]);
 
   const updateRide = useCallback(async (updates: Partial<TRide>) => {
     if (!ride || !rideId) return false;
@@ -328,11 +346,14 @@ export default function Ride() {
     dispatch(setShowModalApp(true));
   };
 
-  const confirmConfirmRideAction = () => {
+  const confirmConfirmRideAction = useCallback(async () => {
     setShowConfirmRideModal(false);
     dispatch(setShowModalApp(false));
-    router.push({ pathname: '/UpdateRide', params: { rideId, mode: 'client_confirm' } } as any);
-  };
+    await updateRide({
+      client_accepted: 1,
+      ride_status: 1,
+    });
+  }, [updateRide, dispatch]);
 
   const handleEditRide = () => {
     router.push({ pathname: '/UpdateRide', params: { rideId, mode: 'edit_ride' } } as any);

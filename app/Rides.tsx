@@ -187,13 +187,18 @@ export default function Rides() {
     setFilteredRides(filtered);
   };
 
-  const handleAcceptRide = (ride: TRide) => {
-    // TODO: Implement accept ride functionality
-    console.log('Accept ride:', ride._id);
-  };
 
-  const getRideStatusColor = (status: number): string => {
-    switch (status) {
+  const getRideStatusColor = (ride: TRide): string => {
+    if (
+      ride.ride_status === 0 &&
+      ride.driver_id &&
+      ride.driver_accepted === 1 &&
+      ride.client_accepted !== 1
+    ) {
+      return '#FF9500'; // Orange/amber for awaiting confirmation
+    }
+
+    switch (ride.ride_status) {
       case 0: return themeColors.primary; // Pending
       case 1: return '#4CAF50'; // Accepted
       case 2: return '#2196F3'; // In Progress
@@ -203,8 +208,20 @@ export default function Rides() {
     }
   };
 
-  const getRideStatusText = (status: number): string => {
-    switch (status) {
+  const getRideStatusText = (ride: TRide): string => {
+    if (
+      ride.ride_status === 0 &&
+      ride.driver_id &&
+      ride.driver_accepted === 1 &&
+      ride.client_accepted !== 1
+    ) {
+      const isRideOwner = ride.user_id === userData?._id;
+      return isRideOwner 
+        ? t('rides.awaitingYourConfirmation') 
+        : t('rides.awaitingClientConfirmation');
+    }
+
+    switch (ride.ride_status) {
       case 0: return t('rides.pending');
       case 1: return t('rides.accepted');
       case 2: return t('rides.inProgress');
@@ -259,13 +276,13 @@ export default function Rides() {
         {/* Status Badge */}
         <View style={[
           styles.statusBadge,
-          { backgroundColor: getRideStatusColor(ride.ride_status) + '15' },
+          { backgroundColor: getRideStatusColor(ride) + '15' },
         ]}>
           <AppText
-            text={getRideStatusText(ride.ride_status)}
+            text={getRideStatusText(ride)}
             size="normal"
             bold
-            styles={{ color: getRideStatusColor(ride.ride_status) }}
+            styles={{ color: getRideStatusColor(ride) }}
           />
         </View>
 
@@ -377,27 +394,6 @@ export default function Rides() {
           </View>
         </View>
 
-        {/* Accept Button */}
-        {ride.ride_status === 0 && !isAdmin && (
-          <Pressable
-            onPress={() => handleAcceptRide(ride)}
-            style={({ pressed }) => [
-              styles.acceptButton, 
-              { 
-                backgroundColor: themeColors.primary,
-                opacity: pressed ? 0.7 : 1,
-              }
-            ]}
-          >
-            <AppText
-              i18nKey="rides.acceptRide"
-              size="medium"
-              bold
-              color="primaryForeground"
-              styles={{ color: themeColors.primaryForeground }}
-            />
-          </Pressable>
-        )}
       </BlurView>
     </Pressable>
   );

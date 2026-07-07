@@ -7,7 +7,8 @@ import * as TaskManager from 'expo-task-manager';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useAppSelector } from '@/src/store/app/hooks';
+import { useAppDispatch, useAppSelector } from '@/src/store/app/hooks';
+import { setUserData } from '@/src/store/reducers/persistedAppSlice';
 import axios from 'axios';
 import apiService from '@/src/services/api';
 import { remote_url } from '@/src/constants/Constants';
@@ -130,7 +131,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -144,7 +147,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -158,7 +163,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -172,7 +179,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -186,7 +195,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -207,7 +218,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -221,7 +234,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -235,7 +250,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -249,7 +266,9 @@ TaskManager.defineTask(BACKGROUND_RIDE_POLL_TASK, async () => {
                 data: { rideId: newRide._id },
                 sound: true,
               },
-              trigger: null,
+              trigger: {
+                channelId: 'default',
+              },
             });
             triggeredAny = true;
           }
@@ -274,6 +293,7 @@ const RideNotificationContext = createContext<{}>({});
 export function RideNotificationProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation();
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const userData = useAppSelector(state => state.persisted_app.user_data);
   const previousRidesRef = useRef<{ [key: string]: TRide }>({});
   const hasInitializedRef = useRef(false);
@@ -306,15 +326,24 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
       if (finalStatus === 'granted') {
         try {
           const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+          if (!projectId) {
+            console.log('No EAS projectId found in app configuration. Skipping Push Token registration. Local notifications will still function.');
+            return;
+          }
           const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
           console.log('Registered Push Token:', token);
 
           if (userData?._id && userData.notification_token !== token) {
-            await apiService.updateUser({
+            const apiResponse = await apiService.updateUser({
               _id: userData._id,
               notification_token: token,
             });
-            console.log('Push token uploaded to backend successfully.');
+            if (apiResponse.success === '1' && apiResponse.user) {
+              dispatch(setUserData(apiResponse.user));
+              console.log('Push token uploaded and updated in Redux store successfully.');
+            } else {
+              console.log('Push token upload failed on backend:', apiResponse.error);
+            }
           }
         } catch (error) {
           console.log('Failed to fetch/upload push token:', error);
@@ -430,7 +459,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
 
@@ -448,7 +479,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
 
@@ -464,7 +497,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
 
@@ -480,7 +515,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
 
@@ -496,7 +533,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
             }
@@ -518,7 +557,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
 
@@ -534,7 +575,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
 
@@ -550,7 +593,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
 
@@ -566,7 +611,9 @@ export function RideNotificationProvider({ children }: { children: React.ReactNo
                     data: { rideId: newRide._id },
                     sound: true,
                   },
-                  trigger: null,
+                  trigger: {
+                    channelId: 'default',
+                  },
                 });
               }
             }
