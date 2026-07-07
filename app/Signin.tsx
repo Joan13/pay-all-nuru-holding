@@ -461,22 +461,24 @@ const Signin = () => {
                 </View>
               </AppButton>
 
-              <AppButton
-                styles={StyleSheet.flatten([styles.button, {
-                  display: Platform.OS === 'android' ? appleAuthAndroid.isSupported ? 'flex' : 'none' : 'flex'
-                }])}
-                outline
-                color={themeColors.border}
-                onPress={handleAppleSignIn}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Image
-                    source={require('./../src/assets/images/apple.png')}
-                    style={styles.icon}
-                  />
-                  <AppText i18nKey="signinWithApple" styles={{ color: themeColors.text }} />
-                </View>
-              </AppButton>
+              {Platform.OS === 'ios' && (
+                <AppButton
+                  styles={StyleSheet.flatten([styles.button, {
+                    // display: Platform.OS === 'android' ? appleAuthAndroid.isSupported ? 'flex' : 'none' : 'flex'
+                  }])}
+                  outline
+                  color={themeColors.border}
+                  onPress={handleAppleSignIn}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Image
+                      source={require('./../src/assets/images/apple.png')}
+                      style={styles.icon}
+                    />
+                    <AppText i18nKey="signinWithApple" styles={{ color: themeColors.text }} />
+                  </View>
+                </AppButton>
+              )}
 
               {/* <AppButton
                 styles={StyleSheet.flatten([styles.button, {
