@@ -1,7 +1,8 @@
-const http: string = "http://";
+const http: string = "https://";
 // export const remote_url: string = http + "192.168.43.147:6841";
 // export const remote_url: string = http + "192.168.0.103:6841";
 export const remote_url: string = http + "payall.yambi.net";
+// export const remote_url: string = "147.79.114.220:6841";
 
 export const randomString = (length: number) => {
     let s = '';

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Add ISRG Root X1 (Let's Encrypt Root) to trusted anchors for payall.yambi.net -->
+    <domain-config>
+        <domain includeSubdomains="true">payall.yambi.net</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Trust the bundled ISRG Root X1 PEM certificate for older Android devices -->
+            <certificates src="@raw/isrgrootx1" />
+        </trust-anchors>
+    </domain-config>
+    <!-- Keep standard config for all other domains -->
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

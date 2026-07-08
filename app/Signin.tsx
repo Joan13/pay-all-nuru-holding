@@ -35,7 +35,6 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 import appleAuth, {
   appleAuthAndroid,
-  AppleError,
 } from '@invertase/react-native-apple-authentication';
 import 'react-native-get-random-values';
 import { v4 as uuid } from 'uuid';
@@ -294,7 +293,10 @@ const Signin = () => {
         await signInWithAppleAndroid();
       }
     } catch (error: any) {
-      if (error?.code === AppleError.CANCELED) {
+      if (
+        error?.code === appleAuth.Error.CANCELED ||
+        error?.code === appleAuthAndroid.Error?.SIGNIN_CANCELLED
+      ) {
         return;
       }
 

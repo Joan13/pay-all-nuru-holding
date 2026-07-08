@@ -45,6 +45,14 @@ export default function Rides() {
 
   const [modalError, setModalError] = useState<{ titleKey: string; descriptionKey: string } | null>(null);
   const [searchBarHeight, setSearchBarHeight] = useState(52);
+  const [showCityModal, setShowCityModal] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      setShowCityModal(true);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -476,7 +484,7 @@ export default function Rides() {
       <StatusBarApp />
 
       <Modal
-        visible={!userData?.city || userData.city.trim() === '' || userData.city.toLowerCase() === 'unknown'}
+        visible={showCityModal && (!userData?.city || userData.city.trim() === '' || userData.city.toLowerCase() === 'unknown')}
         transparent={true}
         animationType="fade"
         statusBarTranslucent={true}
@@ -516,6 +524,7 @@ export default function Rides() {
             <AppButton
               title={t('continue')}
               onPress={() => {
+                setShowCityModal(false);
                 router.push('/UpdateUser');
               }}
               styles={{ width: '100%' }}
