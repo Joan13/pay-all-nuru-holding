@@ -381,7 +381,7 @@
 				CODE_SIGN_ENTITLEMENTS = payallapp/payallapp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = C2J8DC664M;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -420,7 +420,7 @@
 				CODE_SIGN_ENTITLEMENTS = payallapp/payallapp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = C2J8DC664M;
 				INFOPLIST_FILE = payallapp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
