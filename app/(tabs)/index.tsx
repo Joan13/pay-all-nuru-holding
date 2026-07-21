@@ -7,7 +7,7 @@ import { DarkTheme, LightTheme } from '@/src/constants/Themes';
 import { useAppSelector } from '@/src/store/app/hooks';
 import { BlurView } from 'expo-blur';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -44,6 +44,7 @@ interface LocationData {
 export default function Home() {
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const theme = useAppSelector(state => state.persisted_app.theme);
   const userData = useAppSelector(state => state.persisted_app.user_data);
   const themeColors = theme === 'light' ? LightTheme : DarkTheme;
@@ -91,6 +92,14 @@ export default function Home() {
   const [packageWeight, setPackageWeight] = useState('');
   const [packageDescription, setPackageDescription] = useState('');
   const [carpooling, setCarpooling] = useState(false);
+  const [showCityModal, setShowCityModal] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      setShowCityModal(true);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
     requestLocationPermission();
@@ -1019,7 +1028,7 @@ export default function Home() {
         barStyle={theme === 'light' ? 'dark-content' : 'light-content'}
       />
       <Modal
-        visible={!userData?.city || userData.city.trim() === '' || userData.city.toLowerCase() === 'unknown'}
+        visible={showCityModal && (!userData?.city || userData.city.trim() === '' || userData.city.toLowerCase() === 'unknown')}
         transparent={true}
         animationType="fade"
         statusBarTranslucent={true}
@@ -1059,6 +1068,7 @@ export default function Home() {
             <AppButton
               title={t('continue')}
               onPress={() => {
+                setShowCityModal(false);
                 router.push('/UpdateUser');
               }}
               styles={{ width: '100%' }}

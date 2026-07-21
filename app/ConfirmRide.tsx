@@ -100,9 +100,10 @@ export default function ConfirmRide() {
   };
 
   const calculateRidePrice = (distance: number | null): number => {
-    // Simple pricing: 1000 FC per km (adjust as needed)
+    // Simple pricing: 1000 FC per km (adjust as needed), minimum 1000 FC
     if (!distance || distance === 0) return 0;
-    return Math.round(distance * 1000);
+    const price = Math.round(distance * 1000);
+    return price < 1000 ? 1000 : price;
   };
 
   const handleConfirmPayment = async () => {

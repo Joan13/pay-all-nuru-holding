@@ -61,6 +61,9 @@ export default function UpdateUser() {
   const [carModel, setCarModel] = useState(isEditingOwnProfile ? (userData?.car_model || '') : '');
   const [carCondition, setCarCondition] = useState(isEditingOwnProfile ? (userData?.car_condition ?? 0) : 0);
   const [licensePlate, setLicensePlate] = useState(isEditingOwnProfile ? (userData?.license_plate || '') : '');
+  const [carNumber, setCarNumber] = useState(isEditingOwnProfile ? (userData?.car_number || '') : '');
+  const [insuranceDetails, setInsuranceDetails] = useState(isEditingOwnProfile ? (userData?.insurance_details || '') : '');
+  const [insuranceNumber, setInsuranceNumber] = useState(isEditingOwnProfile ? (userData?.insurance_number || '') : '');
   const [phoneNumbers, setPhoneNumbers] = useState<string[]>(
     isEditingOwnProfile && userData?.phone_numbers && userData.phone_numbers.length > 0
       ? userData.phone_numbers
@@ -75,6 +78,12 @@ export default function UpdateUser() {
   );
   const [loading, setLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState<{ title: string; message: string } | null>(null);
+
+  const showModal = (title: string, message: string) => {
+    setModalMessage({ title, message });
+    dispatch(setShowModalApp(true));
+  };
 
   useEffect(() => {
     navigation.setOptions({
@@ -117,6 +126,9 @@ export default function UpdateUser() {
         setCarModel(fetchedUser.car_model || '');
         setCarCondition(fetchedUser.car_condition ?? 0);
         setLicensePlate(fetchedUser.license_plate || '');
+        setCarNumber(fetchedUser.car_number || '');
+        setInsuranceDetails(fetchedUser.insurance_details || '');
+        setInsuranceNumber(fetchedUser.insurance_number || '');
         setPhoneNumbers(
           fetchedUser.phone_numbers && fetchedUser.phone_numbers.length > 0
             ? fetchedUser.phone_numbers
@@ -138,9 +150,7 @@ export default function UpdateUser() {
     } catch (error: any) {
       console.error('Error fetching user data:', error);
     } finally {
-      if (!isEditingOwnProfile) {
-        setLoadingUser(false);
-      }
+      setLoadingUser(false);
     }
   }, [targetUserId, userData?._id, isEditingOwnProfile, dispatch]);
 
@@ -176,7 +186,7 @@ export default function UpdateUser() {
   const handleRemovePhone = (index: number) => {
     // Prevent deletion of the first phone number (primary)
     if (index === 0) {
-      Alert.alert(
+      showModal(
         t('error'),
         t('updateUser.cannotDeletePrimary')
       );
@@ -201,7 +211,7 @@ export default function UpdateUser() {
   const handleRemoveEmail = (index: number) => {
     // Prevent deletion of the first email address (primary account email)
     if (index === 0) {
-      Alert.alert(
+      showModal(
         t('error'),
         t('updateUser.cannotDeletePrimaryEmail')
       );
@@ -227,7 +237,7 @@ export default function UpdateUser() {
     // Validate all emails
     for (const email of validEmails) {
       if (!validateEmail(email)) {
-        Alert.alert(t('error'), t('updateUser.invalidEmail'));
+        showModal(t('error'), t('updateUser.invalidEmail'));
         return;
       }
     }
@@ -235,14 +245,38 @@ export default function UpdateUser() {
     // Validate all phones
     for (const phone of validPhones) {
       if (!validatePhone(phone)) {
-        Alert.alert(t('error'), t('updateUser.invalidPhone'));
+        showModal(t('error'), t('updateUser.invalidPhone'));
         return;
       }
     }
 
     if (!names.trim()) {
-      Alert.alert(t('error'), t('updateUser.names'));
+      showModal(t('error'), t('updateUser.names'));
       return;
+    }
+
+    // Validate driver details if they are a driver
+    if (accountType === 1) {
+      if (!carModel.trim()) {
+        showModal(t('error'), t('becomeDriver.carModelRequired'));
+        return;
+      }
+      if (!licensePlate.trim()) {
+        showModal(t('error'), t('becomeDriver.licenseRequired'));
+        return;
+      }
+      if (!carNumber.trim()) {
+        showModal(t('error'), t('becomeDriver.carNumberRequired'));
+        return;
+      }
+      if (!insuranceDetails.trim()) {
+        showModal(t('error'), t('becomeDriver.insuranceDetailsRequired'));
+        return;
+      }
+      if (!insuranceNumber.trim()) {
+        showModal(t('error'), t('becomeDriver.insuranceNumberRequired'));
+        return;
+      }
     }
 
     try {
@@ -272,11 +306,14 @@ export default function UpdateUser() {
         updatePayload.user.car_model = carModel.trim();
         updatePayload.user.car_condition = carCondition;
         updatePayload.user.license_plate = licensePlate.trim();
+        updatePayload.user.car_number = carNumber.trim();
+        updatePayload.user.insurance_details = insuranceDetails.trim();
+        updatePayload.user.insurance_number = insuranceNumber.trim();
+        // Clear pending driver request flag since they are now a driver
+        updatePayload.user.ask_become_driver = false;
       } else {
-        // Clear car information if user is no longer a driver
-        updatePayload.user.car_model = '';
-        updatePayload.user.car_condition = undefined;
-        updatePayload.user.license_plate = '';
+        // Just clear the request review flag so they are no longer in pending status
+        updatePayload.user.ask_become_driver = false;
       }
 
       const apiResponse = await axios.post(updateUserUrl, updatePayload, {
@@ -293,14 +330,14 @@ export default function UpdateUser() {
         setShowSuccessModal(true);
         dispatch(setShowModalApp(true));
       } else {
-        Alert.alert(
+        showModal(
           t('error'),
           t('updateUser.updateFailed')
         );
       }
     } catch (error: any) {
       console.error('Update User Error:', error);
-      Alert.alert(
+      showModal(
         t('error'),
         t('updateUser.updateFailed')
       );
@@ -327,335 +364,72 @@ export default function UpdateUser() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={true}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[themeColors.primary]}
-              tintColor={themeColors.primary}
-            />
-          }
-        >
-          {/* Admin Controls (only visible to admins) */}
-          {isAdmin && (
-            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-              {/* <AppText size="normal" bold text={t('updateUser.adminControls')} styles={{ marginBottom: 12, color: themeColors.text }} /> */}
-
-              {/* Driver Toggle */}
-              <View style={styles.inputGroup}>
-                <View style={styles.toggleRow}>
-                  <View style={{ flex: 1 }}>
-                    <AppText size="normal" bold text={t('updateUser.makeDriver')} styles={{ marginBottom: 4, color: themeColors.text }} />
-                    <AppText size="small" text={t('updateUser.driverDescription')} styles={{ color: themeColors.gray }} />
-                  </View>
-                  <SwitchApp
-                    value={accountType === 1}
-                    color={themeColors.primary}
-                    onPress={(next: boolean) => {
-                      setAccountType(next ? 1 : 0);
-                    }}
-                  />
-                </View>
-              </View>
-
-              {/* Admin Toggle */}
-              <View style={styles.inputGroup}>
-                <View style={styles.toggleRow}>
-                  <View style={{ flex: 1 }}>
-                    <AppText size="normal" bold text={t('updateUser.makeAdmin')} styles={{ marginBottom: 4, color: themeColors.text }} />
-                    <AppText size="small" text={t('updateUser.adminDescription')} styles={{ color: themeColors.gray }} />
-                  </View>
-                  <SwitchApp
-                    value={isAdminFlag}
-                    color={themeColors.primary}
-                    onPress={(next: boolean) => {
-                      setIsAdminFlag(next);
-                    }}
-                  />
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* Basic Information */}
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            {/* <AppText size="normal" bold text={t('updateUser.title')} styles={{ marginBottom: 12, color: themeColors.text }} /> */}
-
-            {/* Full Name */}
-            <View style={styles.inputGroup}>
-              <AppText size="normal" bold text={t('updateUser.names')} styles={{ marginBottom: 8, color: themeColors.text }} />
-              <TextInput
-                value={names}
-                onChangeText={setNames}
-                placeholder={t('updateUser.names')}
-                placeholderTextColor={themeColors.gray}
-                style={[
-                  styles.input,
-                  {
-                    color: themeColors.text,
-                    backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                    borderColor: themeColors.border,
-                  }
-                ]}
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={true}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[themeColors.primary]}
+                tintColor={themeColors.primary}
               />
-            </View>
+            }
+          >
+            {/* Admin Controls (only visible to admins) */}
+            {isAdmin && (
+              <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+                {/* <AppText size="normal" bold text={t('updateUser.adminControls')} styles={{ marginBottom: 12, color: themeColors.text }} /> */}
 
-            {/* Gender */}
-            <View style={styles.inputGroup}>
-              <AppText size="normal" bold text={t('updateUser.gender')} styles={{ marginBottom: 8, color: themeColors.text }} />
-              <View style={styles.genderContainer}>
-                {[0, 1].map((value) => (
-                  <Pressable
-                    key={value}
-                    onPress={() => setGender(value)}
-                    style={({ pressed }) => [
-                      styles.genderOption,
-                      {
-                        backgroundColor: gender === value ? themeColors.primary : (theme === 'light' ? '#F8F9FA' : '#2C2C2E'),
-                        borderColor: gender === value ? themeColors.primary : themeColors.border,
-                        opacity: pressed ? 0.7 : 1,
-                      }
-                    ]}
-                  >
-                    <AppText
-                      color={gender === value ? themeColors.primaryForeground : themeColors.text}
-                      size="normal"
-                      bold={gender === value}
-                      text={
-                        value === 0 ? (t('updateUser.male')) :
-                          (t('updateUser.female'))
-                      }
-                      styles={{ color: gender === value ? '#FFFFFF' : themeColors.text }}
-                    />
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            {/* Address Fields */}
-            <View style={styles.inputGroup}>
-              <AppText size="normal" bold text={t('updateUser.address')} styles={{ marginBottom: 8, color: themeColors.text }} />
-              <TextInput
-                value={address}
-                onChangeText={setAddress}
-                placeholder={t('updateUser.address')}
-                placeholderTextColor={themeColors.gray}
-                style={[
-                  styles.input,
-                  {
-                    color: themeColors.text,
-                    backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                    borderColor: themeColors.border,
-                  }
-                ]}
-              />
-            </View>
-
-            <View style={styles.row}>
-              <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-                <AppText size="normal" bold text={t('updateUser.city')} styles={{ marginBottom: 8, color: themeColors.text }} />
-                <Pressable
-                  onPress={() => setShowCityModal(true)}
-                  style={({ pressed }) => [
-                    styles.input,
-                    {
-                      backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                      borderColor: themeColors.border,
-                      justifyContent: 'center',
-                      paddingHorizontal: 12,
-                      opacity: pressed ? 0.7 : 1,
-                    }
-                  ]}
-                >
-                  <AppText
-                    text={city || t('updateUser.selectCity')}
-                    styles={{ color: city ? themeColors.text : themeColors.gray }}
-                  />
-                </Pressable>
-              </View>
-
-              <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-                <AppText size="normal" bold text={t('updateUser.state')} styles={{ marginBottom: 8, color: themeColors.text }} />
-                <TextInput
-                  value={state}
-                  onChangeText={setState}
-                  placeholder={t('updateUser.state')}
-                  placeholderTextColor={themeColors.gray}
-                  style={[
-                    styles.input,
-                    {
-                      color: themeColors.text,
-                      backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                      borderColor: themeColors.border,
-                    }
-                  ]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <AppText size="normal" bold text={t('updateUser.country')} styles={{ marginBottom: 8, color: themeColors.text }} />
-              <TextInput
-                value={country}
-                onChangeText={setCountry}
-                placeholder={t('updateUser.country')}
-                placeholderTextColor={themeColors.gray}
-                style={[
-                  styles.input,
-                  {
-                    color: themeColors.text,
-                    backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                    borderColor: themeColors.border,
-                  }
-                ]}
-              />
-            </View>
-          </View>
-
-          {/* Phone Numbers */}
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <View style={styles.sectionHeader}>
-              <AppText size="normal" bold text={t('updateUser.phoneNumbers')} styles={{ color: themeColors.text }} />
-              <Pressable
-                onPress={handleAddPhone}
-                style={({ pressed }) => [
-                  styles.addButton,
-                  {
-                    backgroundColor: themeColors.primary,
-                    opacity: pressed ? 0.7 : 1,
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="plus" size={14} color={themeColors.primaryForeground} />
-                <AppText size="small" color={themeColors.primaryForeground} bold text={t('updateUser.addPhone')} styles={{ color: themeColors.primaryForeground, marginLeft: 4 }} />
-              </Pressable>
-            </View>
-
-            {phoneNumbers.map((phone, index) => (
-              <View key={index} style={styles.listItem}>
-                <TextInput
-                  value={phone}
-                  onChangeText={(value) => handlePhoneChange(index, value)}
-                  placeholder={t('updateUser.enterPhone')}
-                  placeholderTextColor={themeColors.gray}
-                  keyboardType="phone-pad"
-                  style={[
-                    styles.listInput,
-                    {
-                      color: themeColors.text,
-                      backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                      borderColor: themeColors.border,
-                    }
-                  ]}
-                />
-                {phoneNumbers.length > 1 && index !== 0 && (
-                  <Pressable
-                    onPress={() => handleRemovePhone(index)}
-                    style={({ pressed }) => [
-                      styles.removeButton,
-                      {
-                        backgroundColor: themeColors.error + '15',
-                        borderColor: themeColors.error,
-                        opacity: pressed ? 0.7 : 1,
-                      }
-                    ]}
-                  >
-                    <IconApp pack="FI" name="x" size={14} color={themeColors.error} />
-                  </Pressable>
-                )}
-              </View>
-            ))}
-          </View>
-
-          {/* Email Addresses */}
-          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-            <View style={styles.sectionHeader}>
-              <AppText size="normal" bold text={t('updateUser.emails')} styles={{ color: themeColors.text }} />
-              <Pressable
-                onPress={handleAddEmail}
-                style={({ pressed }) => [
-                  styles.addButton,
-                  {
-                    backgroundColor: themeColors.primary,
-                    opacity: pressed ? 0.7 : 1,
-                  }
-                ]}
-              >
-                <IconApp pack="FI" name="plus" size={14} color={themeColors.primaryForeground} />
-                <AppText size="small" color={themeColors.primaryForeground} bold text={t('updateUser.addEmail')} styles={{ marginLeft: 4 }} />
-              </Pressable>
-            </View>
-
-            {emails.map((email, index) => (
-              <View key={index} style={styles.listItem}>
-                <View style={{ flex: 1 }}>
-                  <TextInput
-                    value={email}
-                    onChangeText={(value) => handleEmailChange(index, value)}
-                    placeholder={t('updateUser.enterEmail')}
-                    placeholderTextColor={themeColors.gray}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    editable={index !== 0}
-                    style={[
-                      styles.listInput,
-                      {
-                        color: themeColors.text,
-                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
-                        borderColor: themeColors.border,
-                        opacity: index === 0 ? 0.7 : 1,
-                      }
-                    ]}
-                  />
-                  {index === 0 && (
-                    <AppText
-                      size="small"
-                      text={t('updateUser.primaryEmail')}
-                      styles={{
-                        color: themeColors.gray,
-                        marginTop: 4,
-                        fontStyle: 'italic',
-                        fontSize: 12
+                {/* Driver Toggle */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.toggleRow}>
+                    <View style={{ flex: 1 }}>
+                      <AppText size="normal" bold text={t('updateUser.makeDriver')} styles={{ marginBottom: 4, color: themeColors.text }} />
+                      <AppText size="small" text={t('updateUser.driverDescription')} styles={{ color: themeColors.gray }} />
+                    </View>
+                    <SwitchApp
+                      value={accountType === 1}
+                      color={themeColors.primary}
+                      onPress={(next: boolean) => {
+                        setAccountType(next ? 1 : 0);
                       }}
                     />
-                  )}
+                  </View>
                 </View>
-                {emails.length > 1 && index !== 0 && (
-                  <Pressable
-                    onPress={() => handleRemoveEmail(index)}
-                    style={({ pressed }) => [
-                      styles.removeButton,
-                      {
-                        backgroundColor: themeColors.error + '15',
-                        borderColor: themeColors.error,
-                        opacity: pressed ? 0.7 : 1,
-                      }
-                    ]}
-                  >
-                    <IconApp pack="FI" name="x" size={14} color={themeColors.error} />
-                  </Pressable>
-                )}
+
+                {/* Admin Toggle */}
+                <View style={styles.inputGroup}>
+                  <View style={styles.toggleRow}>
+                    <View style={{ flex: 1 }}>
+                      <AppText size="normal" bold text={t('updateUser.makeAdmin')} styles={{ marginBottom: 4, color: themeColors.text }} />
+                      <AppText size="small" text={t('updateUser.adminDescription')} styles={{ color: themeColors.gray }} />
+                    </View>
+                    <SwitchApp
+                      value={isAdminFlag}
+                      color={themeColors.primary}
+                      onPress={(next: boolean) => {
+                        setIsAdminFlag(next);
+                      }}
+                    />
+                  </View>
+                </View>
               </View>
-            ))}
-          </View>
+            )}
 
-          {/* Car Information (for drivers only) */}
-          {accountType === 1 && (
+            {/* Basic Information */}
             <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
-              <AppText size="normal" bold text={t('updateUser.carInformation')} styles={{ marginBottom: 12, color: themeColors.text }} />
+              {/* <AppText size="normal" bold text={t('updateUser.title')} styles={{ marginBottom: 12, color: themeColors.text }} /> */}
 
-              {/* Car Model */}
+              {/* Full Name */}
               <View style={styles.inputGroup}>
-                <AppText size="normal" bold text={t('updateUser.carModel')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                <AppText size="normal" bold text={t('updateUser.names')} styles={{ marginBottom: 8, color: themeColors.text }} />
                 <TextInput
-                  value={carModel}
-                  onChangeText={setCarModel}
-                  placeholder={t('updateUser.enterCarModel')}
+                  value={names}
+                  onChangeText={setNames}
+                  placeholder={t('updateUser.names')}
                   placeholderTextColor={themeColors.gray}
                   style={[
                     styles.input,
@@ -668,48 +442,106 @@ export default function UpdateUser() {
                 />
               </View>
 
-              {/* Car Condition */}
+              {/* Gender */}
               <View style={styles.inputGroup}>
-                <AppText size="normal" bold text={t('updateUser.carCondition')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                <AppText size="normal" bold text={t('updateUser.gender')} styles={{ marginBottom: 8, color: themeColors.text }} />
                 <View style={styles.genderContainer}>
-                  {[0, 1, 2].map((value) => (
+                  {[0, 1].map((value) => (
                     <Pressable
                       key={value}
-                      onPress={() => setCarCondition(value)}
+                      onPress={() => setGender(value)}
                       style={({ pressed }) => [
                         styles.genderOption,
                         {
-                          backgroundColor: carCondition === value ? themeColors.primary : (theme === 'light' ? '#F8F9FA' : '#2C2C2E'),
-                          borderColor: carCondition === value ? themeColors.primary : themeColors.border,
+                          backgroundColor: gender === value ? themeColors.primary : (theme === 'light' ? '#F8F9FA' : '#2C2C2E'),
+                          borderColor: gender === value ? themeColors.primary : themeColors.border,
                           opacity: pressed ? 0.7 : 1,
                         }
                       ]}
                     >
                       <AppText
-                        color={carCondition === value ? themeColors.primaryForeground : themeColors.text}
+                        color={gender === value ? themeColors.primaryForeground : themeColors.text}
                         size="normal"
-                        bold={carCondition === value}
+                        bold={gender === value}
                         text={
-                          value === 0 ? (t('updateUser.excellent')) :
-                            value === 1 ? (t('updateUser.good')) :
-                              (t('updateUser.poor'))
+                          value === 0 ? (t('updateUser.male')) :
+                            (t('updateUser.female'))
                         }
-                        styles={{ color: carCondition === value ? '#FFFFFF' : themeColors.text }}
+                        styles={{ color: gender === value ? '#FFFFFF' : themeColors.text }}
                       />
                     </Pressable>
                   ))}
                 </View>
               </View>
 
-              {/* License Plate */}
+              {/* Address Fields */}
               <View style={styles.inputGroup}>
-                <AppText size="normal" bold text={t('updateUser.licensePlate')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                <AppText size="normal" bold text={t('updateUser.address')} styles={{ marginBottom: 8, color: themeColors.text }} />
                 <TextInput
-                  value={licensePlate}
-                  onChangeText={setLicensePlate}
-                  placeholder={t('updateUser.enterLicensePlate')}
+                  value={address}
+                  onChangeText={setAddress}
+                  placeholder={t('updateUser.address')}
                   placeholderTextColor={themeColors.gray}
-                  autoCapitalize="characters"
+                  style={[
+                    styles.input,
+                    {
+                      color: themeColors.text,
+                      backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                      borderColor: themeColors.border,
+                    }
+                  ]}
+                />
+              </View>
+
+              <View style={styles.row}>
+                <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+                  <AppText size="normal" bold text={t('updateUser.city')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <Pressable
+                    onPress={() => setShowCityModal(true)}
+                    style={({ pressed }) => [
+                      styles.input,
+                      {
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                        justifyContent: 'center',
+                        paddingHorizontal: 12,
+                        opacity: pressed ? 0.7 : 1,
+                      }
+                    ]}
+                  >
+                    <AppText
+                      text={city || t('updateUser.selectCity')}
+                      styles={{ color: city ? themeColors.text : themeColors.gray }}
+                    />
+                  </Pressable>
+                </View>
+
+                <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+                  <AppText size="normal" bold text={t('updateUser.state')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <TextInput
+                    value={state}
+                    onChangeText={setState}
+                    placeholder={t('updateUser.state')}
+                    placeholderTextColor={themeColors.gray}
+                    style={[
+                      styles.input,
+                      {
+                        color: themeColors.text,
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <AppText size="normal" bold text={t('updateUser.country')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                <TextInput
+                  value={country}
+                  onChangeText={setCountry}
+                  placeholder={t('updateUser.country')}
+                  placeholderTextColor={themeColors.gray}
                   style={[
                     styles.input,
                     {
@@ -721,17 +553,279 @@ export default function UpdateUser() {
                 />
               </View>
             </View>
-          )}
 
-          {/* Save Button */}
-          <AppButton
-            i18nKey="updateUser.save"
-            onPress={handleSave}
-            loadEnabled={loading}
-            styles={styles.saveButton}
-          />
-        </ScrollView>
-      </KeyboardAvoidingView>
+            {/* Phone Numbers */}
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <View style={styles.sectionHeader}>
+                <AppText size="normal" bold text={t('updateUser.phoneNumbers')} styles={{ color: themeColors.text }} />
+                <Pressable
+                  onPress={handleAddPhone}
+                  style={({ pressed }) => [
+                    styles.addButton,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1,
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="plus" size={14} color={themeColors.primaryForeground} />
+                  <AppText size="small" color={themeColors.primaryForeground} bold text={t('updateUser.addPhone')} styles={{ color: themeColors.primaryForeground, marginLeft: 4 }} />
+                </Pressable>
+              </View>
+
+              {phoneNumbers.map((phone, index) => (
+                <View key={index} style={styles.listItem}>
+                  <TextInput
+                    value={phone}
+                    onChangeText={(value) => handlePhoneChange(index, value)}
+                    placeholder={t('updateUser.enterPhone')}
+                    placeholderTextColor={themeColors.gray}
+                    keyboardType="phone-pad"
+                    style={[
+                      styles.listInput,
+                      {
+                        color: themeColors.text,
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                      }
+                    ]}
+                  />
+                  {phoneNumbers.length > 1 && index !== 0 && (
+                    <Pressable
+                      onPress={() => handleRemovePhone(index)}
+                      style={({ pressed }) => [
+                        styles.removeButton,
+                        {
+                          backgroundColor: themeColors.error + '15',
+                          borderColor: themeColors.error,
+                          opacity: pressed ? 0.7 : 1,
+                        }
+                      ]}
+                    >
+                      <IconApp pack="FI" name="x" size={14} color={themeColors.error} />
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {/* Email Addresses */}
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <View style={styles.sectionHeader}>
+                <AppText size="normal" bold text={t('updateUser.emails')} styles={{ color: themeColors.text }} />
+                <Pressable
+                  onPress={handleAddEmail}
+                  style={({ pressed }) => [
+                    styles.addButton,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1,
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="plus" size={14} color={themeColors.primaryForeground} />
+                  <AppText size="small" color={themeColors.primaryForeground} bold text={t('updateUser.addEmail')} styles={{ marginLeft: 4 }} />
+                </Pressable>
+              </View>
+
+              {emails.map((email, index) => (
+                <View key={index} style={styles.listItem}>
+                  <View style={{ flex: 1 }}>
+                    <TextInput
+                      value={email}
+                      onChangeText={(value) => handleEmailChange(index, value)}
+                      placeholder={t('updateUser.enterEmail')}
+                      placeholderTextColor={themeColors.gray}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      editable={index !== 0}
+                      style={[
+                        styles.listInput,
+                        {
+                          color: themeColors.text,
+                          backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                          borderColor: themeColors.border,
+                          opacity: index === 0 ? 0.7 : 1,
+                        }
+                      ]}
+                    />
+                    {index === 0 && (
+                      <AppText
+                        size="small"
+                        text={t('updateUser.primaryEmail')}
+                        styles={{
+                          color: themeColors.gray,
+                          marginTop: 4,
+                          fontStyle: 'italic',
+                          fontSize: 12
+                        }}
+                      />
+                    )}
+                  </View>
+                  {emails.length > 1 && index !== 0 && (
+                    <Pressable
+                      onPress={() => handleRemoveEmail(index)}
+                      style={({ pressed }) => [
+                        styles.removeButton,
+                        {
+                          backgroundColor: themeColors.error + '15',
+                          borderColor: themeColors.error,
+                          opacity: pressed ? 0.7 : 1,
+                        }
+                      ]}
+                    >
+                      <IconApp pack="FI" name="x" size={14} color={themeColors.error} />
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+
+            {/* Car Information (for drivers only) */}
+            {accountType === 1 && (
+              <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+                <AppText size="normal" bold text={t('updateUser.carInformation')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+                {/* Car Model */}
+                <View style={styles.inputGroup}>
+                  <AppText size="normal" bold text={t('updateUser.carModel')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <TextInput
+                    value={carModel}
+                    onChangeText={setCarModel}
+                    placeholder={t('updateUser.enterCarModel')}
+                    placeholderTextColor={themeColors.gray}
+                    style={[
+                      styles.input,
+                      {
+                        color: themeColors.text,
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                      }
+                    ]}
+                  />
+                </View>
+
+                {/* Car Condition */}
+                <View style={styles.inputGroup}>
+                  <AppText size="normal" bold text={t('updateUser.carCondition')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <View style={styles.genderContainer}>
+                    {[0, 1, 2].map((value) => (
+                      <Pressable
+                        key={value}
+                        onPress={() => setCarCondition(value)}
+                        style={({ pressed }) => [
+                          styles.genderOption,
+                          {
+                            backgroundColor: carCondition === value ? themeColors.primary : (theme === 'light' ? '#F8F9FA' : '#2C2C2E'),
+                            borderColor: carCondition === value ? themeColors.primary : themeColors.border,
+                            opacity: pressed ? 0.7 : 1,
+                          }
+                        ]}
+                      >
+                        <AppText
+                          color={carCondition === value ? themeColors.primaryForeground : themeColors.text}
+                          size="normal"
+                          bold={carCondition === value}
+                          text={
+                            value === 0 ? (t('updateUser.excellent')) :
+                              value === 1 ? (t('updateUser.good')) :
+                                (t('updateUser.poor'))
+                          }
+                          styles={{ color: carCondition === value ? '#FFFFFF' : themeColors.text }}
+                        />
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {/* License Plate */}
+                <View style={styles.inputGroup}>
+                  <AppText size="normal" bold text={t('updateUser.licensePlate')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <TextInput
+                    value={licensePlate}
+                    onChangeText={setLicensePlate}
+                    placeholder={t('updateUser.enterLicensePlate')}
+                    placeholderTextColor={themeColors.gray}
+                    autoCapitalize="characters"
+                    style={[
+                      styles.input,
+                      {
+                        color: themeColors.text,
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                      }
+                    ]}
+                  />
+                </View>
+
+                {/* Car Number */}
+                <View style={styles.inputGroup}>
+                  <AppText size="normal" bold text={t('becomeDriver.carNumber')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <TextInput
+                    value={carNumber}
+                    onChangeText={setCarNumber}
+                    placeholder={t('becomeDriver.enterCarNumber')}
+                    placeholderTextColor={themeColors.gray}
+                    style={[
+                      styles.input,
+                      {
+                        color: themeColors.text,
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                      }
+                    ]}
+                  />
+                </View>
+
+                {/* Insurance Details */}
+                <View style={styles.inputGroup}>
+                  <AppText size="normal" bold text={t('becomeDriver.insuranceDetails')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <TextInput
+                    value={insuranceDetails}
+                    onChangeText={setInsuranceDetails}
+                    placeholder={t('becomeDriver.enterInsuranceDetails')}
+                    placeholderTextColor={themeColors.gray}
+                    style={[
+                      styles.input,
+                      {
+                        color: themeColors.text,
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                      }
+                    ]}
+                  />
+                </View>
+
+                {/* Insurance Number */}
+                <View style={styles.inputGroup}>
+                  <AppText size="normal" bold text={t('becomeDriver.insuranceNumber')} styles={{ marginBottom: 8, color: themeColors.text }} />
+                  <TextInput
+                    value={insuranceNumber}
+                    onChangeText={setInsuranceNumber}
+                    placeholder={t('becomeDriver.enterInsuranceNumber')}
+                    placeholderTextColor={themeColors.gray}
+                    style={[
+                      styles.input,
+                      {
+                        color: themeColors.text,
+                        backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                        borderColor: themeColors.border,
+                      }
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Save Button */}
+            <AppButton
+              i18nKey="updateUser.save"
+              onPress={handleSave}
+              loadEnabled={loading}
+              styles={styles.saveButton}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
 
       {/* Success Modal */}
@@ -745,6 +839,22 @@ export default function UpdateUser() {
             setShowSuccessModal(false);
             dispatch(setShowModalApp(false));
             router.back();
+          }}
+        >
+          <View />
+        </ModalApp>
+      )}
+
+      {/* Info/Error Message Modal */}
+      {modalMessage && (
+        <ModalApp
+          title={modalMessage.title}
+          description={modalMessage.message}
+          singleButton={true}
+          textCancelKey="close"
+          onClose={() => {
+            setModalMessage(null);
+            dispatch(setShowModalApp(false));
           }}
         >
           <View />

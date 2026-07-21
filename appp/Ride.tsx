@@ -1,0 +1,1830 @@
+import IconApp from '@/src/components/app/IconApp';
+import ModalApp from '@/src/components/app/ModalApp';
+import StatusBarApp from '@/src/components/app/StatusBar';
+import AppText from '@/src/components/app/Text';
+import { AppView } from '@/src/components/app/ViewApp';
+import { remote_url } from '@/src/constants/Constants';
+import { DarkTheme, LightTheme } from '@/src/constants/Themes';
+import { useAppDispatch, useAppSelector } from '@/src/store/app/hooks';
+import { setShowModalApp } from '@/src/store/reducers/appSlice';
+import { TRide, TUserData } from '@/src/Types';
+import axios from 'axios';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import * as Notifications from 'expo-notifications';
+import { useTranslation } from 'react-i18next';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+export default function Ride() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const navigation = useNavigation();
+  const params = useLocalSearchParams();
+  const dispatch = useAppDispatch();
+  const theme = useAppSelector(state => state.persisted_app.theme);
+  const userData = useAppSelector(state => state.persisted_app.user_data);
+  const themeColors = theme === 'light' ? LightTheme : DarkTheme;
+  const insets = useSafeAreaInsets();
+
+  const [ride, setRide] = useState<TRide | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [showCancelRideModal, setShowCancelRideModal] = useState(false);
+  const [showCancelAcceptModal, setShowCancelAcceptModal] = useState(false);
+  const [showConfirmRideModal, setShowConfirmRideModal] = useState(false);
+  const [showReadyToStartModal, setShowReadyToStartModal] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
+  const [currencyInput, setCurrencyInput] = useState(0);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<number | null>(null);
+  const [driverRate, setDriverRate] = useState<number>(0);
+  const [driverRateDesc, setDriverRateDesc] = useState<string>('');
+  const [submittingRate, setSubmittingRate] = useState<boolean>(false);
+  const [driverInfo, setDriverInfo] = useState<TUserData | null>(null);
+  const [userInfo, setUserInfo] = useState<TUserData | null>(null);
+  const [loadingContact, setLoadingContact] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCodeVerificationModal, setShowCodeVerificationModal] = useState(false);
+  const [verificationCodeInput, setVerificationCodeInput] = useState('');
+  const [codeError, setCodeError] = useState('');
+
+  const [modalConfig, setModalConfig] = useState<{
+    title: string;
+    description: string;
+    onClose?: () => void;
+  } | null>(null);
+
+  const showModalAlert = (title: string, description: string, onClose?: () => void) => {
+    setModalConfig({ title, description, onClose });
+    dispatch(setShowModalApp(true));
+  };
+
+  const rideId = params.rideId as string;
+  const isDriver = userData?.account_type === 1;
+  const isAdmin = userData?.account_type === 2 || userData?.is_admin === true;
+  const isRideOwner = !!ride && (ride.user_id === userData?._id);
+  const isRideDriver = !!ride && (ride.driver_id === userData?._id);
+
+  useEffect(() => {
+    if (!rideId) return;
+    const dismissRideNotifications = async () => {
+      try {
+        const presented = await Notifications.getPresentedNotificationsAsync();
+        for (const notification of presented) {
+          if (notification.request.content.data?.rideId === rideId) {
+            await Notifications.dismissNotificationAsync(notification.request.identifier);
+          }
+        }
+      } catch (error) {
+        console.log('Error clearing notifications for ride:', error);
+      }
+    };
+    dismissRideNotifications();
+  }, [rideId]);
+
+  const updateRide = useCallback(async (updates: Partial<TRide>) => {
+    if (!ride || !rideId) return false;
+
+    try {
+      setIsProcessing(true);
+      const updateRideUrl = `${remote_url}/payall/API/update_ride`;
+      const updatePayload = {
+        ride_id: rideId,
+        ride: updates,
+      };
+
+      const apiResponse = await axios.post(updateRideUrl, updatePayload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (apiResponse.data && apiResponse.data.success === '1') {
+        setRide(apiResponse.data.ride);
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error: any) {
+      console.error('Update Ride Error:', error);
+      return false;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [ride, rideId]);
+
+  const handleCancelRide = useCallback(() => {
+    setShowCancelRideModal(true);
+    dispatch(setShowModalApp(true));
+  }, [dispatch]);
+
+  const confirmCancelRide = useCallback(async () => {
+    setShowCancelRideModal(false);
+    dispatch(setShowModalApp(false));
+    const success = await updateRide({ ride_status: 4 }); // 4 = cancelled
+    if (success) {
+      setTimeout(() => router.back(), 1500);
+    }
+  }, [updateRide, router, dispatch]);
+
+  useEffect(() => {
+    const getPreviousRouteName = (): string | undefined => {
+      try {
+        // @ts-ignore - react-navigation types differ under expo-router
+        const state = navigation.getState?.();
+        const routes = state?.routes ?? [];
+        const index = state?.index ?? -1;
+        if (routes.length > 1 && index > 0) {
+          // previous route in the current navigator
+          return routes[index - 1]?.name as string | undefined;
+        }
+      } catch {
+        // ignore
+      }
+      return undefined;
+    };
+
+    const canCancel = isRideOwner && ride && (ride.ride_status === 0 || ride.ride_status === 1);
+    const prevName = getPreviousRouteName();
+    const cameFromTabsOrHistory =
+      typeof prevName === 'string' &&
+      (/\(tabs\)/i.test(prevName) || /history/i.test(prevName));
+
+    navigation.setOptions({
+      title: t('ride.title'),
+      // iOS-only: customize back button label
+      ...(Platform.OS === 'ios'
+        ? {
+          headerBackTitle:
+            cameFromTabsOrHistory
+              ? (t('history.title') || t('tabs.history'))
+              : undefined,
+        }
+        : {}),
+      headerRight: canCancel ? () => (
+        <Pressable
+          onPress={handleCancelRide}
+          disabled={isProcessing}
+          style={{ marginRight: 15 }}
+        >
+          <IconApp pack="FI" name="trash-2" size={20} color={themeColors.error || '#FF3B30'} />
+        </Pressable>
+      ) : undefined,
+    });
+  }, [navigation, t, ride, isRideOwner, isProcessing, themeColors, handleCancelRide]);
+
+  const fetchRide = useCallback(async (isRefresh = false) => {
+    try {
+      if (!isRefresh) setLoading(true);
+      const getRidesUrl = `${remote_url}/payall/API/get_rides`;
+      const apiResponse = await axios.post(getRidesUrl, {
+        user_id: userData?._id,
+        ride_id: rideId,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (apiResponse.data && apiResponse.data.success === '1' && apiResponse.data.rides) {
+        const foundRide = apiResponse.data.rides.find((r: TRide) => r._id === rideId);
+        if (foundRide) {
+          setRide(foundRide);
+        } else {
+          showModalAlert(t('ride.notFound'), t('ride.notFoundDescription'), () => router.back());
+        }
+      } else {
+        showModalAlert(t('networkError'), t('ride.fetchError'), () => router.back());
+      }
+    } catch (error: any) {
+      console.error('Error fetching ride:', error);
+      showModalAlert(t('networkError'), t('ride.fetchError'), () => router.back());
+    } finally {
+      if (!isRefresh) setLoading(false);
+    }
+  }, [rideId, userData?._id, router, t]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchRide(true);
+    setRefreshing(false);
+  }, [fetchRide]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (rideId && userData?._id) {
+        fetchRide(true);
+      }
+    });
+    return unsubscribe;
+  }, [navigation, rideId, userData?._id, fetchRide]);
+
+  useEffect(() => {
+    if (rideId && userData?._id) {
+      fetchRide();
+    }
+  }, [rideId, userData?._id, fetchRide]);
+
+  const fetchContactInfo = useCallback(async (contactId: string, setContactInfo: (info: TUserData | null) => void) => {
+    // If it's the current user, use Redux data
+    if (contactId === userData?._id) {
+      setContactInfo(userData);
+      return;
+    }
+
+    try {
+      setLoadingContact(true);
+      // Try to fetch user info - if endpoint doesn't exist, this will fail gracefully
+      const getUserUrl = `${remote_url}/payall/API/get_user`;
+      const apiResponse = await axios.post(getUserUrl, {
+        user_id: contactId,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (apiResponse.data && apiResponse.data.success === '1' && apiResponse.data.user) {
+        setContactInfo(apiResponse.data.user as TUserData);
+      }
+    } catch (error: any) {
+      // If getUser endpoint doesn't exist, we'll just not show contact info
+      console.log('Could not fetch contact info:', error);
+    } finally {
+      setLoadingContact(false);
+    }
+  }, [userData]);
+
+  useEffect(() => {
+    if (ride) {
+      // Fetch driver info if there's a driver and it's not the current user
+      if (ride.driver_id && ride.driver_id !== userData?._id) {
+        fetchContactInfo(ride.driver_id, setDriverInfo);
+      } else if (ride.driver_id === userData?._id) {
+        setDriverInfo(userData);
+      } else {
+        setDriverInfo(null);
+      }
+
+      // Fetch user (owner) info if it's not the current user and we're a driver/admin
+      if ((isDriver || isAdmin) && ride.user_id && ride.user_id !== userData?._id) {
+        fetchContactInfo(ride.user_id, setUserInfo);
+      } else if (ride.user_id === userData?._id) {
+        setUserInfo(userData);
+      } else if (!isDriver && !isAdmin) {
+        // If we're the owner, we don't need to show our own info
+        setUserInfo(null);
+      }
+    }
+  }, [ride, userData, isDriver, isAdmin, fetchContactInfo]);
+
+  const handleCall = async (phoneNumber: string) => {
+    if (!phoneNumber) return;
+    const phoneUrl = `tel:${phoneNumber.replace(/[^\d+]/g, '')}`;
+    try {
+      const canOpen = await Linking.canOpenURL(phoneUrl);
+      if (canOpen) {
+        await Linking.openURL(phoneUrl);
+      } else {
+        showModalAlert(t('networkError'), t('ride.noContactInfo'));
+      }
+    } catch (error) {
+      console.error('Error opening phone:', error);
+      showModalAlert(t('networkError'), t('ride.noContactInfo'));
+    }
+  };
+
+  const getContactPhones = (contact: any | null): string[] => {
+    if (!contact) return [];
+    const phones: string[] = [];
+    if (contact.phone_number && typeof contact.phone_number === 'string' && contact.phone_number.trim() !== '') {
+      phones.push(contact.phone_number.trim());
+    }
+    if (contact.phone_numbers && Array.isArray(contact.phone_numbers)) {
+      contact.phone_numbers.forEach((p: string) => {
+        if (p && typeof p === 'string' && p.trim() !== '' && !phones.includes(p.trim())) {
+          phones.push(p.trim());
+        }
+      });
+    }
+    return phones;
+  };
+
+  const getContactEmails = (contact: TUserData | null): string[] => {
+    if (!contact) return [];
+    if (contact.user_emails && contact.user_emails.length > 0) {
+      return contact.user_emails.filter(e => e.trim() !== '');
+    }
+    if (contact.user_email && contact.user_email.trim() !== '') {
+      return [contact.user_email];
+    }
+    return [];
+  };
+
+  const handleAcceptRide = () => {
+    if (!userData?._id) return;
+    router.push({ pathname: '/UpdateRide', params: { rideId, mode: 'driver_accept' } } as any);
+  };
+
+  const handleConfirmRide = () => {
+    setShowConfirmRideModal(true);
+    dispatch(setShowModalApp(true));
+  };
+
+  const confirmConfirmRideAction = useCallback(async () => {
+    setShowConfirmRideModal(false);
+    dispatch(setShowModalApp(false));
+    await updateRide({
+      client_accepted: 1,
+      ride_status: 1,
+    });
+  }, [updateRide, dispatch]);
+
+  const handleEditRide = () => {
+    router.push({ pathname: '/UpdateRide', params: { rideId, mode: 'edit_ride' } } as any);
+  };
+
+  const handleCancelAcceptRide = useCallback(() => {
+    setShowCancelAcceptModal(true);
+    dispatch(setShowModalApp(true));
+  }, [dispatch]);
+
+  const confirmCancelAcceptRide = useCallback(async () => {
+    setShowCancelAcceptModal(false);
+    dispatch(setShowModalApp(false));
+    const success = await updateRide({
+      driver_id: null,
+      driver_accepted: 0,
+      ride_status: 0, // Back to pending
+    });
+    if (success) {
+      // Stay on the page, just refresh
+    }
+  }, [updateRide, dispatch]);
+
+  const handleConfirmReadyToStart = () => {
+    setShowReadyToStartModal(true);
+    dispatch(setShowModalApp(true));
+  };
+
+  const confirmReadyToStartAction = async () => {
+    setShowReadyToStartModal(false);
+    dispatch(setShowModalApp(false));
+    await updateRide({ client_start_confirmed: 1 });
+  };
+
+  const handleStartRide = () => {
+    if (!ride) return;
+    if (ride.client_start_confirmed !== 1) {
+      showModalAlert(
+        t('ride.waitingForClientTitle'),
+        t('ride.waitingForClientDesc')
+      );
+      return;
+    }
+    setVerificationCodeInput('');
+    setCodeError('');
+    setShowCodeVerificationModal(true);
+    dispatch(setShowModalApp(true));
+  };
+
+  const handleVerifyCodeAndStart = async () => {
+    if (!ride) return;
+    const entered = verificationCodeInput.trim().toUpperCase();
+    if (!entered) return;
+
+    try {
+      setIsProcessing(true);
+      const updateRideUrl = `${remote_url}/payall/API/update_ride`;
+      const apiResponse = await axios.post(updateRideUrl, {
+        ride_id: rideId,
+        ride: {
+          start_otp: entered
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (apiResponse.data && apiResponse.data.success === '1') {
+        setRide(apiResponse.data.ride);
+        setShowCodeVerificationModal(false);
+        dispatch(setShowModalApp(false));
+      } else {
+        setCodeError(apiResponse.data.error || t('ride.incorrectCode'));
+      }
+    } catch (error: any) {
+      console.error('Verify start OTP error:', error);
+      setCodeError(t('networkError'));
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleFinishRide = async () => {
+    const success = await updateRide({
+      ride_status: 3, // 3 = completed
+      end_time: new Date().toISOString()
+    });
+    if (success) {
+      // Ride finished
+    }
+  };
+
+  const handleStatusChange = async (newStatus: number) => {
+    if (ride && newStatus !== ride.ride_status) {
+      await updateRide({ ride_status: newStatus });
+    }
+  };
+
+  const handlePaymentMethodSelect = (newMethod: number) => {
+    setSelectedPaymentMethod(newMethod);
+  };
+
+  const handlePaymentMethodConfirm = async () => {
+    if (selectedPaymentMethod === null) return;
+    setShowPaymentModal(false);
+    dispatch(setShowModalApp(false));
+    await updateRide({ ride_payment_method: selectedPaymentMethod });
+    setSelectedPaymentMethod(null);
+  };
+
+
+  const submitDriverRate = useCallback(async () => {
+    if (!userData?._id || !ride || !ride.driver_id) return;
+    if (driverRate < 1 || driverRate > 5) {
+      showModalAlert(t('errorTitle'), t('ride.invalidRate'));
+      return;
+    }
+    try {
+      setSubmittingRate(true);
+      const url = `${remote_url}/payall/API/add_driver_rate`;
+      const payload = {
+        user_id: userData._id,
+        ride_id: ride._id,
+        driver_id: ride.driver_id,
+        description: driverRateDesc,
+        rate: driverRate,
+        rate_active: 1,
+      };
+      const apiResponse = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (apiResponse.data && apiResponse.data.success === '1') {
+        showModalAlert(t('success'), t('ride.rateSaved'));
+        setDriverRate(0);
+        setDriverRateDesc('');
+      } else {
+        showModalAlert(t('errorTitle'), apiResponse.data?.error || t('ride.rateFailed'));
+      }
+    } catch (error: any) {
+      console.error('Add Driver Rate Error:', error);
+      showModalAlert(t('errorTitle'), t('ride.rateFailed'));
+    } finally {
+      setSubmittingRate(false);
+    }
+  }, [userData?._id, ride, driverRate, driverRateDesc, t]);
+
+  const formatCurrency = (amount: number, currency: number): string => {
+    // 0 = FC (Franc Congolais), can be extended for other currencies
+    const currencySymbol = currency === 0 ? 'FC' : 'USD';
+    return `${amount} ${currencySymbol}`;
+  };
+
+  // Removed unused getCurrencyName to satisfy linter
+
+  const getStatusText = (status: number): string => {
+    switch (status) {
+      case 0: return t('rides.pending');
+      case 1: return t('rides.accepted');
+      case 2: return t('rides.inProgress');
+      case 3: return t('rides.completed');
+      case 4: return t('rides.cancelled');
+      default: return t('rides.unknown');
+    }
+  };
+
+  const getStatusColor = (status: number): string => {
+    switch (status) {
+      case 0: return '#FFA500'; // Orange for pending
+      case 1: return '#007AFF'; // Blue for accepted
+      case 2: return '#34C759'; // Green for in progress
+      case 3: return '#34C759'; // Green for completed
+      case 4: return '#FF3B30'; // Red for cancelled
+      default: return '#8E8E93'; // Gray for unknown
+    }
+  };
+
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatDuration = (minutes: number): string => {
+    if (!minutes || minutes === 0) return '';
+    if (minutes < 60) {
+      return `${minutes} ${t('home.minutes')}`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    if (remainingMinutes === 0) {
+      return `${hours} ${t('home.hours')}`;
+    }
+    return `${hours} ${t('home.hours')} ${remainingMinutes} ${t('home.minutes')}`;
+  };
+
+  if (loading) {
+    return (
+      <AppView style={styles.container}>
+        <StatusBarApp />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={themeColors.primary} />
+          <AppText
+            text={t('loading')}
+            size="small"
+            styles={{ marginTop: 12, color: themeColors.gray }}
+          />
+        </View>
+      </AppView>
+    );
+  }
+
+  if (!ride) {
+    return (
+      <AppView style={styles.container}>
+        <StatusBarApp />
+        <View style={styles.emptyContainer}>
+          <AppText
+            text={t('ride.notFound')}
+            size="medium"
+            styles={{ color: themeColors.gray, textAlign: 'center' }}
+          />
+        </View>
+      </AppView>
+    );
+  }
+
+  const canAccept = isDriver && ride.ride_status === 0 && !ride.driver_id;
+  const canConfirmRide = isRideOwner &&
+    !!ride.driver_id &&
+    ride.driver_accepted === 1 &&
+    ride.client_accepted !== 1 &&
+    ride.ride_price > 0 &&
+    ride.ride_status === 0;
+  const canEditRide = isRideOwner && ride.ride_status === 0 && !ride.driver_id;
+  const canCancelAccept = isRideDriver && ride.ride_status === 1; // Driver can unaccept if status is accepted
+  const canStartRide = isRideDriver && ride.ride_status === 1 && ride.client_accepted === 1; // Driver can start if accepted
+  const canFinishRide = isRideDriver && ride.ride_status === 2; // Driver can finish if in progress
+  const canCustomerReady = isRideOwner && ride.ride_status === 1 && ride.client_accepted === 1 && ride.client_start_confirmed !== 1;
+  const canCustomerComplete = isRideOwner && ride.ride_status === 2;
+  const rideStatus = ride?.ride_status ?? -1;
+  // Only allow manual status changes while pending (0) by owner/admin.
+  // For accepted (1): show only Start Ride and Cancel Accept.
+  // For in progress (2): show only Completed.
+  const canChangeStatus = (rideStatus === 0) && (isRideOwner || isAdmin);
+  const canChangePayment = isRideOwner && ride.ride_status === 0; // Only when pending, not after acceptance
+  // Driver can set price if ride is manual (ride_price is 0 or needs to be set) but only before accepting (status 0)
+  // After acceptance, drivers cannot edit any ride details
+  const canSetPrice = isRideDriver && ride.ride_status === 0 && (ride.ride_price === 0 || !ride.ride_price);
+  // Once a ride is accepted (status 1), neither user nor driver can edit price/currency
+  // Only owner can edit price and currency when ride is still pending (status 0)
+  // Driver can only edit price/currency before accepting the ride (status 0)
+  const canEditPriceCurrency = (isRideOwner || isRideDriver) && ride.ride_status === 0;
+  const canRateDriver = isRideOwner && ride.ride_status === 3 && !!ride.driver_id; // after completed
+
+  const showContactDriver = !isRideDriver && !!ride.driver_id && ride.driver_accepted === 1 && ride.client_accepted === 1 && ride.ride_price > 0 && ride.ride_status >= 1;
+  const showContactUser = (isRideDriver || isAdmin) && !isRideOwner && ride.client_accepted === 1 && ride.ride_status >= 1;
+  const showPendingMessage = isRideOwner && ride.ride_status === 0 && !ride.driver_id;
+
+  return (
+    <AppView style={styles.container}>
+      <StatusBarApp />
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primary]} tintColor={themeColors.primary} />
+          }
+        >
+          {/* Status Badge with Toolbar Actions */}
+          <View style={styles.statusToolbar}>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(ride.ride_status) + '15' }]}>
+              <View style={[styles.statusDot, { backgroundColor: getStatusColor(ride.ride_status) }]} />
+              <AppText
+                size="normal"
+                bold
+                text={getStatusText(ride.ride_status)}
+                styles={{ color: getStatusColor(ride.ride_status) }}
+              />
+            </View>
+
+            {/* Toolbar Actions */}
+            <View style={styles.toolbarActions}>
+              {canAccept && (
+                <Pressable
+                  onPress={handleAcceptRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator color={themeColors.primaryForeground} size="small" />
+                  ) : (
+                    <>
+                      <IconApp pack="FI" name="check" size={16} color={themeColors.primaryForeground} />
+                      <AppText size="small" color={themeColors.primaryForeground} bold text={t('ride.takeRide') || t('ride.acceptRide')} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                    </>
+                  )}
+                </Pressable>
+              )}
+
+              {canConfirmRide && (
+                <Pressable
+                  onPress={handleConfirmRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: '#34C759',
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
+                  <AppText size="small" bold text={t('ride.confirmRide')} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canEditRide && (
+                <Pressable
+                  onPress={handleEditRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="edit" size={16} color={themeColors.primaryForeground} />
+                  <AppText size="small" color='light' bold text={t('ride.editRide')} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canCancelAccept && (
+                <Pressable
+                  onPress={handleCancelAcceptRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.error + '15',
+                      borderColor: themeColors.error,
+                      borderWidth: 1,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="x" size={16} color={themeColors.error} />
+                  <AppText size="small" bold text={t('ride.cancelAcceptRide')} styles={{ color: themeColors.error, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canStartRide && (
+                <Pressable
+                  onPress={handleStartRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="play" size={16} color={themeColors.primaryForeground} />
+                  <AppText size="small" bold text={t('ride.startRide')} color={themeColors.primaryForeground} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canFinishRide && (
+                <Pressable
+                  onPress={handleFinishRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: '#34C759',
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
+                  <AppText size="small" bold text={t('ride.endRide') || t('ride.finishRide')} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canCustomerReady && (
+                <Pressable
+                  onPress={handleConfirmReadyToStart}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: themeColors.primary,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="play" size={16} color={themeColors.primaryForeground} />
+                  <AppText size="small" bold text={t('ride.readyToBegin')} color={themeColors.primaryForeground} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {isRideOwner && ride.ride_status === 1 && ride.client_start_confirmed === 1 && (
+                <View style={[styles.statusBadge, { backgroundColor: '#34C75915' }]}>
+                  <IconApp pack="FI" name="clock" size={14} color="#34C759" styles={{ marginRight: 6 }} />
+                  <AppText size="small" bold text={t('ride.waitingForDriver')} styles={{ color: '#34C759' }} />
+                </View>
+              )}
+
+              {canCustomerComplete && (
+                <Pressable
+                  onPress={handleFinishRide}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButtonWithText,
+                    {
+                      backgroundColor: '#34C759',
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="check-circle" size={16} color="#FFFFFF" />
+                  <AppText size="small" bold text={t('ride.confirmCompletion')} styles={{ color: '#FFFFFF', marginLeft: 6 }} />
+                </Pressable>
+              )}
+
+              {canChangeStatus && (
+                <Pressable
+                  onPress={() => {
+                    dispatch(setShowModalApp(true));
+                    setShowStatusModal(true);
+                  }}
+                  disabled={isProcessing}
+                  style={({ pressed }) => [
+                    styles.toolbarButton,
+                    {
+                      backgroundColor: themeColors.primary + '15',
+                      borderColor: themeColors.primary,
+                      borderWidth: 1,
+                      opacity: pressed ? 0.7 : 1
+                    }
+                  ]}
+                >
+                  <IconApp pack="FI" name="edit" size={16} color={themeColors.primary} />
+                </Pressable>
+              )}
+            </View>
+          </View>
+
+          {showPendingMessage && (
+            <View
+              style={[
+                // styles.card,
+                {
+                  backgroundColor: themeColors.success + '20',
+                  borderColor: themeColors.success + '30',
+                  flexDirection: 'row',
+                  alignItems: 'flex-start',
+                  padding: 14,
+                  marginBottom: 12,
+                  gap: 10,
+                  borderWidth: 1,
+                  // elevation: 1,
+                  shadowRadius: 4,
+                  borderRadius: 15
+                }
+              ]}
+            >
+              <IconApp pack="FI" name="info" size={20} color={themeColors.primary} styles={{ marginTop: 2 }} />
+              <View style={{ flex: 1 }}>
+                <AppText
+                  size="normal"
+                  bold
+                  text={t('ride.pendingStatusTitle')}
+                  styles={{ color: themeColors.primary, marginBottom: 4 }}
+                />
+                <AppText
+                  size="small"
+                  text={t('ride.pendingStatusDescription')}
+                  styles={{ color: themeColors.text, opacity: 0.8, lineHeight: 18 }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Route Information */}
+          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+            <AppText size="normal" bold text={t('ride.route')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+            <View style={styles.locationRow}>
+              <View style={[styles.locationIndicator, { backgroundColor: '#007AFF' }]} />
+              <View style={styles.locationContent}>
+                <AppText size="normal" bold text={t('home.from')} styles={styles.label} />
+                <AppText size="normal" text={ride.start_location} styles={{ marginTop: 1 }} />
+              </View>
+            </View>
+
+            {ride.stops && ride.stops.length > 0 && (
+              <>
+                {ride.stops.map((stop, index) => (
+                  <View key={index} style={styles.locationRow}>
+                    <View style={[styles.locationIndicator, { backgroundColor: '#FFA500' }]} />
+                    <View style={styles.locationContent}>
+                      <AppText size="normal" bold text={`${t('home.stop')} ${index + 1}`} styles={styles.label} />
+                      <AppText size="normal" text={stop.address} styles={{ marginTop: 1 }} />
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+
+            <View style={styles.locationRow}>
+              <View style={[styles.locationIndicator, { backgroundColor: '#FF3B30' }]} />
+              <View style={styles.locationContent}>
+                <AppText size="normal" bold text={t('home.to')} styles={styles.label} />
+                <AppText size="normal" text={ride.end_location} styles={{ marginTop: 1 }} />
+              </View>
+            </View>
+          </View>
+
+          {/* Contact Information */}
+          {showContactDriver && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <AppText size="normal" bold text={t('ride.contactDriver')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+              {loadingContact ? (
+                <ActivityIndicator size="small" color={themeColors.primary} />
+              ) : (
+                <>
+                  {driverInfo && (
+                    <>
+                      <AppText size="small" bold text={driverInfo.names || ''} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+                      {getContactPhones(driverInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactPhones(driverInfo).map((phone, index) => (
+                            <Pressable
+                              key={index}
+                              onPress={() => handleCall(phone)}
+                              style={({ pressed }) => [
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                  opacity: pressed ? 0.7 : 1,
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="phone" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={phone} styles={{ color: themeColors.text, flex: 1 }} />
+                              <IconApp pack="FI" name="chevron-right" size={14} color={themeColors.gray} />
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactEmails(driverInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactEmails(driverInfo).map((email, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="mail" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={email} styles={{ color: themeColors.text, flex: 1 }} />
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactPhones(driverInfo).length === 0 && getContactEmails(driverInfo).length === 0 && (
+                        <AppText size="small" text={t('ride.noContactInfo')} styles={{ color: themeColors.gray, fontStyle: 'italic' }} />
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+
+          {showContactUser && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <AppText size="normal" bold text={t('ride.contactUser')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+              {loadingContact ? (
+                <ActivityIndicator size="small" color={themeColors.primary} />
+              ) : (
+                <>
+                  {userInfo && (
+                    <>
+                      <AppText size="small" bold text={userInfo.names || ''} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+                      {getContactPhones(userInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactPhones(userInfo).map((phone, index) => (
+                            <Pressable
+                              key={index}
+                              onPress={() => handleCall(phone)}
+                              style={({ pressed }) => [
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                  opacity: pressed ? 0.7 : 1,
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="phone" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={phone} styles={{ color: themeColors.text, flex: 1 }} />
+                              <IconApp pack="FI" name="chevron-right" size={14} color={themeColors.gray} />
+                            </Pressable>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactEmails(userInfo).length > 0 && (
+                        <View style={styles.contactSection}>
+                          {getContactEmails(userInfo).map((email, index) => (
+                            <View
+                              key={index}
+                              style={[
+                                styles.contactItem,
+                                {
+                                  backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E',
+                                }
+                              ]}
+                            >
+                              <IconApp pack="FI" name="mail" size={16} color={themeColors.primary} styles={{ marginRight: 10 }} />
+                              <AppText size="normal" text={email} styles={{ color: themeColors.text, flex: 1 }} />
+                            </View>
+                          ))}
+                        </View>
+                      )}
+
+                      {getContactPhones(userInfo).length === 0 && getContactEmails(userInfo).length === 0 && (
+                        <AppText size="small" text={t('ride.noContactInfo')} styles={{ color: themeColors.gray, fontStyle: 'italic' }} />
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+          )}
+
+          {/* Security Verification Code for Customer */}
+          {isRideOwner && !!ride.driver_id && ride.driver_accepted === 1 && ride.ride_price > 0 && (ride.ride_status === 0 || ride.ride_status === 1) && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: themeColors.primary }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <IconApp pack="FI" name="shield" size={18} color={themeColors.primary} styles={{ marginRight: 8 }} />
+                <AppText size="normal" bold text={t('ride.verificationCodeTitle')} styles={{ color: themeColors.text }} />
+              </View>
+              <AppText size="small" text={t('ride.verificationCodeDesc')} styles={{ color: themeColors.gray, marginBottom: 12, lineHeight: 18 }} />
+              <View style={{ alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, backgroundColor: themeColors.primary + '10', borderWidth: 1, borderStyle: 'dashed', borderColor: themeColors.primary }}>
+                <AppText size="xlarge" bold text={ride.start_otp || ride._id.slice(-4).toUpperCase()} styles={{ color: themeColors.primary, letterSpacing: 4 }} />
+              </View>
+            </View>
+          )}
+
+          {/* Ride Details */}
+          <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+            <AppText size="normal" bold text={t('ride.details')} styles={{ marginBottom: 12, color: themeColors.text }} />
+
+            <View style={styles.detailsGrid}>
+              {ride.distance > 0 && (
+                <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
+                  <IconApp pack="FI" name="map" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
+                  <AppText size="small" text={t('home.km')} styles={{ opacity: 0.7, marginBottom: 2 }} />
+                  <AppText size="normal" bold text={`${ride.distance.toFixed(1)} ${t('home.km')}`} />
+                </View>
+              )}
+
+              {ride.estimated_duration > 0 && (
+                <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
+                  <IconApp pack="FI" name="clock" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
+                  <AppText size="small" text={t('home.duration')} styles={{ opacity: 0.7, marginBottom: 2 }} />
+                  <AppText size="normal" bold text={formatDuration(ride.estimated_duration)} />
+                </View>
+              )}
+
+              {ride.ride_price > 0 && (
+                <View style={[styles.detailCard, { backgroundColor: theme === 'light' ? '#F8F9FA' : '#2C2C2E' }]}>
+                  <IconApp pack="FI" name="dollar-sign" size={18} color={themeColors.primary} styles={{ marginBottom: 4 }} />
+                  <AppText size="small" text={t('ride.price')} styles={{ opacity: 0.7, marginBottom: 2 }} />
+                  <AppText size="normal" bold text={formatCurrency(ride.ride_price, ride.ride_currency || 0)} />
+                </View>
+              )}
+            </View>
+
+            <View style={styles.timeContainer}>
+              <View style={styles.timeRow}>
+                <IconApp pack="FI" name="calendar" size={14} color={themeColors.gray} styles={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <AppText size="small" text={t('history.startTime')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                  <AppText size="normal" text={formatDate(ride.start_time)} />
+                </View>
+              </View>
+
+              {ride.end_time && (
+                <View style={[styles.timeRow, { marginTop: 8 }]}>
+                  <IconApp pack="FI" name="calendar" size={14} color={themeColors.gray} styles={{ marginRight: 8 }} />
+                  <View style={{ flex: 1 }}>
+                    <AppText size="small" text={t('history.endTime')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                    <AppText size="normal" text={formatDate(ride.end_time)} />
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Package & Carpooling info */}
+            <View style={{ borderTopWidth: 1, borderTopColor: theme === 'light' ? '#F2F2F7' : '#2C2C2E', marginTop: 12, paddingTop: 12, gap: 10 }}>
+              {/* Package info */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <IconApp pack="FI" name="box" size={16} color={ride.with_package === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <AppText size="small" text={t('home.packageOptions')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                  {ride.with_package === 1 ? (
+                    <AppText size="normal" bold text={`${ride.package_weight || 0} kg${ride.package_description ? ` (${ride.package_description})` : ''}`} />
+                  ) : (
+                    <AppText size="normal" bold text={t('home.noPackage')} styles={{ color: themeColors.gray }} />
+                  )}
+                </View>
+              </View>
+
+              {/* Carpooling info */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                <IconApp pack="FI" name="users" size={16} color={ride.carpooling === 1 ? themeColors.primary : themeColors.gray} styles={{ marginRight: 10, marginTop: 2 }} />
+                <View style={{ flex: 1 }}>
+                  <AppText size="small" text={t('home.allowCarpooling')} styles={{ opacity: 0.7, marginBottom: 1 }} />
+                  <AppText
+                    size="normal"
+                    bold
+                    text={ride.carpooling === 1 ? (t('home.carpoolingAllowed')) : (t('home.carpoolingNotAllowed'))}
+                    styles={{ color: ride.carpooling === 1 ? themeColors.primary : themeColors.gray }}
+                  />
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Payment Method */}
+          {canChangePayment && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <View style={styles.sectionHeader}>
+                <AppText size="normal" bold text={t('ride.paymentMethod')} styles={{ color: themeColors.text }} />
+                <Pressable
+                  onPress={() => {
+                    setSelectedPaymentMethod(ride.ride_payment_method);
+                    dispatch(setShowModalApp(true));
+                    setShowPaymentModal(true);
+                  }}
+                  style={({ pressed }) => [
+                    styles.editIconButton,
+                    { opacity: pressed ? 0.7 : 1 }
+                  ]}
+                >
+                  <IconApp pack="FI" name="edit-2" size={16} color={themeColors.primary} />
+                </Pressable>
+              </View>
+              <View style={[styles.paymentBadge, { backgroundColor: themeColors.primary + '10' }]}>
+                <IconApp pack="FI" name={ride.ride_payment_method === 0 ? "dollar-sign" : "credit-card"} size={14} color={themeColors.primary} styles={{ marginRight: 6 }} />
+                <AppText
+                  size="normal"
+                  bold
+                  text={ride.ride_payment_method === 0 ? (t('confirmRide.cash')) : (t('confirmRide.online'))}
+                  styles={{ color: themeColors.primary }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Price Display (if set) */}
+          {ride.ride_price > 0 && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <View style={styles.sectionHeader}>
+                <AppText size="normal" bold text={t('ride.price')} styles={{ color: themeColors.text }} />
+              </View>
+              <View style={[styles.paymentBadge, { backgroundColor: themeColors.primary + '10' }]}>
+                <IconApp pack="FI" name="dollar-sign" size={14} color={themeColors.primary} styles={{ marginRight: 6 }} />
+                <AppText
+                  size="normal"
+                  bold
+                  text={formatCurrency(ride.ride_price, ride.ride_currency || 0)}
+                  styles={{ color: themeColors.primary }}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Driver Rating (after completion by ride owner) */}
+          {canRateDriver && (
+            <View style={[styles.card, { backgroundColor: theme === 'light' ? '#FFFFFF' : '#1C1C1E', borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.12)' }]}>
+              <AppText size="normal" bold text={t('ride.rateDriver')} styles={{ marginBottom: 12, color: themeColors.text }} />
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Pressable
+                    key={n}
+                    onPress={() => setDriverRate(n)}
+                    style={({ pressed }) => [
+                      styles.starButton,
+                      { opacity: pressed ? 0.7 : 1 }
+                    ]}
+                  >
+                    <IconApp
+                      pack={n <= driverRate ? "FA" : "FI"}
+                      name="star"
+                      size={22}
+                      color={n <= driverRate ? themeColors.primary : themeColors.gray}
+                    />
+                  </Pressable>
+                ))}
+              </View>
+              <View style={{ marginTop: 12 }}>
+                <TextInput
+                  value={driverRateDesc}
+                  onChangeText={setDriverRateDesc}
+                  placeholder={t('ride.rateDescriptionPlaceholder')}
+                  placeholderTextColor={themeColors.gray}
+                  multiline
+                  numberOfLines={4}
+                  style={[
+                    styles.priceInput,
+                    {
+                      color: themeColors.text,
+                      backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
+                      borderColor: themeColors.border,
+                      minHeight: 100,
+                      textAlignVertical: 'top'
+                    }
+                  ]}
+                />
+              </View>
+              <Pressable
+                onPress={submitDriverRate}
+                disabled={submittingRate}
+                style={({ pressed }) => [
+                  styles.toolbarButtonWithText,
+                  {
+                    backgroundColor: themeColors.primary,
+                    alignSelf: 'flex-start',
+                    marginTop: 12,
+                    opacity: pressed || submittingRate ? 0.7 : 1
+                  }
+                ]}
+              >
+                {submittingRate ? (
+                  <ActivityIndicator color={themeColors.primaryForeground} size="small" />
+                ) : (
+                  <>
+                    <IconApp pack="FI" name="send" size={16} color={themeColors.primaryForeground} />
+                    <AppText size="small" bold text={t('ride.submitRate')} color={themeColors.primaryForeground} styles={{ color: themeColors.primaryForeground, marginLeft: 6 }} />
+                  </>
+                )}
+              </Pressable>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Status Change Modal */}
+      {showStatusModal && (
+        <StatusChangeModal
+          currentStatus={ride.ride_status}
+          onSelect={handleStatusChange}
+          onClose={() => {
+            setShowStatusModal(false);
+            dispatch(setShowModalApp(false));
+          }}
+          isRideDriver={isRideDriver}
+          isRideOwner={isRideOwner}
+          isAdmin={isAdmin}
+          themeColors={themeColors}
+          theme={theme}
+        />
+      )}
+
+      {/* Payment Method Change Modal */}
+      {showPaymentModal && (
+        <ModalApp
+          titleKey="ride.paymentMethod"
+          singleButton={false}
+          onClose={() => {
+            setShowPaymentModal(false);
+            dispatch(setShowModalApp(false));
+            setSelectedPaymentMethod(null);
+          }}
+          onAction={handlePaymentMethodConfirm}
+          textActionKey="confirmRide.confirm"
+        >
+          <PaymentMethodModal
+            currentMethod={selectedPaymentMethod !== null ? selectedPaymentMethod : ride.ride_payment_method}
+            onSelect={handlePaymentMethodSelect}
+            onClose={() => {
+              setShowPaymentModal(false);
+              dispatch(setShowModalApp(false));
+              setSelectedPaymentMethod(null);
+            }}
+            themeColors={themeColors}
+            theme={theme}
+          />
+        </ModalApp>
+      )}
+
+      {/* Alert modal */}
+      {modalConfig && (
+        <ModalApp
+          title={modalConfig.title}
+          description={modalConfig.description}
+          singleButton={true}
+          onClose={() => {
+            if (modalConfig.onClose) {
+              modalConfig.onClose();
+            }
+            setModalConfig(null);
+            dispatch(setShowModalApp(false));
+          }}
+        >
+          <View />
+        </ModalApp>
+      )}
+
+      {/* Confirm Ride Confirmation Modal */}
+      {showConfirmRideModal && (
+        <ModalApp
+          titleKey="ride.confirmRideTitle"
+          singleButton={false}
+          onClose={() => {
+            setShowConfirmRideModal(false);
+            dispatch(setShowModalApp(false));
+          }}
+          onAction={confirmConfirmRideAction}
+          textActionKey="confirm"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.confirmRidePrompt')}
+              styles={{ color: themeColors.text, textAlign: 'center' }}
+            />
+          </View>
+        </ModalApp>
+      )}
+
+      {/* Ready to Start Confirmation Modal */}
+      {showReadyToStartModal && (
+        <ModalApp
+          titleKey="ride.readyToBeginTitle"
+          singleButton={false}
+          onClose={() => {
+            setShowReadyToStartModal(false);
+            dispatch(setShowModalApp(false));
+          }}
+          onAction={confirmReadyToStartAction}
+          textActionKey="confirm"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.readyToBeginPrompt')}
+              styles={{ color: themeColors.text, textAlign: 'center' }}
+            />
+          </View>
+        </ModalApp>
+      )}
+
+      {/* Cancel Ride Confirmation Modal */}
+      {showCancelRideModal && (
+        <ModalApp
+          titleKey="ride.cancelRide"
+          singleButton={false}
+          onClose={() => {
+            setShowCancelRideModal(false);
+            dispatch(setShowModalApp(false));
+          }}
+          onAction={confirmCancelRide}
+          textActionKey="ride.cancel"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.cancelConfirm')}
+              styles={{ color: themeColors.text, textAlign: 'center' }}
+            />
+          </View>
+        </ModalApp>
+      )}
+
+      {/* Cancel Accept Ride Confirmation Modal */}
+      {showCancelAcceptModal && (
+        <ModalApp
+          titleKey="ride.cancelAcceptRide"
+          singleButton={false}
+          onClose={() => {
+            setShowCancelAcceptModal(false);
+            dispatch(setShowModalApp(false));
+          }}
+          onAction={confirmCancelAcceptRide}
+          textActionKey="ride.cancel"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.cancelAcceptConfirm')}
+              styles={{ color: themeColors.text, textAlign: 'center' }}
+            />
+          </View>
+        </ModalApp>
+      )}
+
+      {/* Code Verification Modal */}
+      {showCodeVerificationModal && (
+        <ModalApp
+          title={t('ride.enterVerificationCode')}
+          singleButton={false}
+          onClose={() => {
+            setShowCodeVerificationModal(false);
+            dispatch(setShowModalApp(false));
+            setVerificationCodeInput('');
+            setCodeError('');
+          }}
+          onAction={handleVerifyCodeAndStart}
+          textActionKey="confirmRide.confirm"
+        >
+          <View style={styles.modalContent}>
+            <AppText
+              size="normal"
+              text={t('ride.askClientForCode')}
+              styles={{ color: themeColors.text, textAlign: 'center', marginBottom: 16 }}
+            />
+            <TextInput
+              value={verificationCodeInput}
+              onChangeText={(text) => {
+                setVerificationCodeInput(text);
+                if (codeError) setCodeError('');
+              }}
+              placeholder="0000"
+              placeholderTextColor={themeColors.gray}
+              keyboardType="number-pad"
+              maxLength={6}
+              style={[
+                styles.priceInput,
+                {
+                  color: themeColors.text,
+                  backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
+                  borderColor: codeError ? (themeColors.error || '#FF3B30') : themeColors.border,
+                  textAlign: 'center',
+                  fontSize: 24,
+                  fontWeight: 'bold',
+                  letterSpacing: 8,
+                  width: '80%',
+                  alignSelf: 'center',
+                }
+              ]}
+            />
+            {codeError ? (
+              <AppText
+                size="small"
+                text={codeError}
+                styles={{ color: themeColors.error || '#FF3B30', marginTop: 10, textAlign: 'center' }}
+              />
+            ) : null}
+          </View>
+        </ModalApp>
+      )}
+    </AppView>
+  );
+}
+
+// Status Change Modal Component
+interface StatusChangeModalProps {
+  currentStatus: number;
+  onSelect: (status: number) => void;
+  onClose: () => void;
+  isRideDriver: boolean;
+  isRideOwner: boolean;
+  isAdmin: boolean;
+  themeColors: typeof LightTheme;
+  theme: string;
+}
+
+const StatusChangeModal: React.FC<StatusChangeModalProps> = ({
+  currentStatus,
+  onSelect,
+  onClose,
+  isRideDriver,
+  isRideOwner,
+  isAdmin,
+  themeColors,
+  theme
+}) => {
+  const { t } = useTranslation();
+
+  // Define all possible status options
+  const allStatusOptions = [
+    { value: 0, label: t('rides.pending') },
+    { value: 1, label: t('rides.accepted') },
+    { value: 2, label: t('rides.inProgress') },
+    { value: 3, label: t('rides.completed') },
+  ];
+
+  // Filter valid next statuses based on current status and user role
+  const getValidStatusOptions = () => {
+    const validOptions = [];
+
+    if (currentStatus === 0) {
+      // Pending status cannot be changed to Accepted directly.
+      // Driver must accept and set price via UpdateRide.tsx.
+    } else if (currentStatus === 1) {
+      // Accepted: can go to In Progress (by driver) or Completed (by driver) or back to Pending (cancel accept)
+      if (isRideDriver || isAdmin) {
+        validOptions.push(allStatusOptions[2]); // In Progress
+        validOptions.push(allStatusOptions[3]); // Completed
+        validOptions.push(allStatusOptions[0]); // Back to Pending (cancel accept)
+      }
+    } else if (currentStatus === 2) {
+      // In Progress: can go to Completed (by driver) or back to Accepted (by driver)
+      if (isRideDriver || isAdmin) {
+        validOptions.push(allStatusOptions[3]); // Completed
+        validOptions.push(allStatusOptions[1]); // Back to Accepted
+      }
+    } else if (currentStatus === 3 || currentStatus === 4) {
+      // Completed or Cancelled: no status changes allowed (final states)
+      return [];
+    }
+
+    // Always include current status to show what it currently is
+    const currentOption = allStatusOptions.find(opt => opt.value === currentStatus);
+    if (currentOption && !validOptions.find(opt => opt.value === currentStatus)) {
+      validOptions.unshift(currentOption);
+    }
+
+    // Remove duplicates and sort
+    const uniqueOptions = validOptions.filter((opt, index, self) =>
+      index === self.findIndex((o) => o.value === opt.value)
+    );
+
+    return uniqueOptions;
+  };
+
+  const validStatusOptions = getValidStatusOptions();
+
+  return (
+    <ModalApp
+      onClose={onClose}
+      titleKey="ride.changeStatus"
+      singleButton={true}
+      onAction={onClose}
+    >
+      <View>
+        {validStatusOptions.length === 0 ? (
+          <AppText
+            size="normal"
+            text={t('ride.noStatusChange')}
+            styles={{
+              color: themeColors.gray,
+              textAlign: 'center',
+              paddingVertical: 20
+            }}
+          />
+        ) : (
+          validStatusOptions.map((option) => {
+            const isCurrentStatus = currentStatus === option.value;
+            const isDisabled = isCurrentStatus && validStatusOptions.length === 1;
+
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => {
+                  if (!isDisabled && option.value !== currentStatus) {
+                    onSelect(option.value);
+                    onClose();
+                  }
+                }}
+                disabled={isDisabled}
+                style={({ pressed }) => [
+                  styles.statusOption,
+                  {
+                    backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
+                    borderColor: isCurrentStatus ? themeColors.primary : 'transparent',
+                    opacity: (pressed && !isDisabled) ? 0.7 : (isDisabled ? 0.5 : 1),
+                  }
+                ]}
+              >
+                <AppText
+                  size="medium"
+                  text={option.label}
+                  styles={{ color: themeColors.text }}
+                />
+                {isCurrentStatus && (
+                  <IconApp pack="FI" name="check" size={18} color={themeColors.primary} />
+                )}
+                {!isCurrentStatus && (
+                  <IconApp pack="FI" name="chevron-right" size={18} color={themeColors.gray} />
+                )}
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+    </ModalApp>
+  );
+};
+
+// Payment Method Change Modal Component
+interface PaymentMethodModalProps {
+  currentMethod: number;
+  onSelect: (method: number) => void;
+  onClose: () => void;
+  themeColors: typeof LightTheme;
+  theme: string;
+}
+
+const PaymentMethodModal: React.FC<PaymentMethodModalProps> = ({ currentMethod, onSelect, onClose, themeColors, theme }) => {
+  const { t } = useTranslation();
+
+  const paymentOptions = [
+    { value: 0, label: t('confirmRide.cash') },
+    { value: 1, label: t('confirmRide.online') },
+  ];
+
+  return (
+    <View>
+      {paymentOptions.map((option) => (
+        <Pressable
+          key={option.value}
+          onPress={() => onSelect(option.value)}
+          style={({ pressed }) => [
+            styles.statusOption,
+            {
+              backgroundColor: theme === 'light' ? '#F5F5F5' : '#2C2C2E',
+              borderColor: currentMethod === option.value ? themeColors.primary : 'transparent',
+              opacity: pressed ? 0.7 : 1,
+            }
+          ]}
+        >
+          <AppText
+            size="medium"
+            text={option.label}
+            styles={{ color: themeColors.text }}
+          />
+          {currentMethod === option.value && (
+            <IconApp pack="FI" name="check" size={18} color={themeColors.primary} />
+          )}
+        </Pressable>
+      ))}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 15,
+    paddingTop: 15,
+  },
+  statusToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  toolbarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toolbarButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolbarButtonWithText: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    minHeight: 36,
+  },
+  modalContent: {
+    padding: 20,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  card: {
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 0.5,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  locationIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 10,
+    marginTop: 4,
+  },
+  locationContent: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  label: {
+    marginBottom: 2,
+    opacity: 0.65,
+    fontWeight: '600',
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
+  },
+  detailCard: {
+    flex: 1,
+    minWidth: '30%',
+    padding: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeContainer: {
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0, 0, 0, 0.08)',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  editIconButton: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  paymentBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  modalBlur: {
+    padding: 20,
+    borderRadius: 20,
+  },
+  modalScroll: {
+    maxHeight: 400,
+  },
+  statusOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 2,
+  },
+  priceInputContainer: {
+    marginBottom: 20,
+  },
+  priceInput: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 16,
+  },
+  currencyContainer: {
+    marginTop: 8,
+  },
+  currencyOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  currencyOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+  },
+  contactSection: {
+    marginBottom: 12,
+  },
+  contactItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  starButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+

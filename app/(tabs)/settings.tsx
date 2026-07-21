@@ -250,6 +250,50 @@ export default function Settings() {
           </Pressable>
         </View>
 
+        {/* Become a Driver Section */}
+        {!isDriver && (
+          <View style={styles.section}>
+            <AppText 
+              i18nKey="becomeDriver.title"
+              size="big"
+              bold
+              styles={styles.sectionTitle}
+            />
+            <Pressable 
+              style={({ pressed }) => [
+                styles.settingItem, 
+                { 
+                  backgroundColor: themeColors.background, 
+                  borderColor: themeColors.border,
+                  opacity: pressed ? 0.7 : 1
+                }
+              ]}
+              onPress={() => router.push('/BecomeDriver')}
+            >
+              <View style={styles.settingLeft}>
+                <IconApp 
+                  pack="FI" 
+                  name="truck" 
+                  size={24} 
+                  color={themeColors.text} 
+                  styles={{ marginRight: 15 }}
+                />
+                <AppText 
+                  i18nKey="settings.becomeDriver"
+                  size="normal"
+                />
+              </View>
+              <IconApp 
+                pack="FI" 
+                name="chevron-right" 
+                size={20} 
+                color={themeColors.gray} 
+                styles={{}}
+              />
+            </Pressable>
+          </View>
+        )}
+
         {/* Account Section */}
         <View style={styles.section}>
           <AppText 

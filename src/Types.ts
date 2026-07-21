@@ -27,6 +27,10 @@ export type TUserData = {
     car_model?: string, // Car model (for drivers)
     car_condition?: number, // Car condition: 0 = excellent, 1 = good/fair, 2 = poor/scrap (for drivers)
     license_plate?: string, // License plate number (for drivers)
+    car_number?: string,
+    insurance_details?: string,
+    insurance_number?: string,
+    ask_become_driver?: boolean,
     notification_token?: string, // Push notification token
     createdAt: string,
     updatedAt: string

@@ -36,7 +36,7 @@ export default function Admin() {
   const themeColors = theme === 'light' ? LightTheme : DarkTheme;
   const insets = useSafeAreaInsets();
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'rides' | 'users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rides' | 'users' | 'driver_requests'>('overview');
   const [rides, setRides] = useState<TRide[]>([]);
   const [users, setUsers] = useState<TUserData[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -165,9 +165,18 @@ export default function Admin() {
     (user.phone_numbers && user.phone_numbers.some(phone => phone.includes(searchQuery)))
   );
 
+  const filteredRequests = users.filter(user =>
+    user.ask_become_driver === true && (
+      !searchQuery.trim() ||
+      user.names.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.user_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.phone_numbers && user.phone_numbers.some(phone => phone.includes(searchQuery)))
+    )
+  );
+
   const SEARCH_BAR_TOP = 15;
   const GAP_BELOW_SEARCH = 10;
-  const showSearchBar = activeTab === 'rides' || activeTab === 'users';
+  const showSearchBar = activeTab === 'rides' || activeTab === 'users' || activeTab === 'driver_requests';
   const scrollPaddingTop = showSearchBar
     ? SEARCH_BAR_TOP + searchBarHeight + GAP_BELOW_SEARCH
     : 10;
@@ -197,7 +206,13 @@ export default function Admin() {
             styles={{ marginRight: 12 }} 
           />
           <TextInput
-            placeholder={activeTab === 'rides' ? t('admin.searchRides') : t('admin.searchUsers')}
+            placeholder={
+              activeTab === 'rides' 
+                ? t('admin.searchRides') 
+                : activeTab === 'users' 
+                  ? t('admin.searchUsers') 
+                  : t('admin.searchUsers')
+            }
             placeholderTextColor={themeColors.gray}
             style={[
               styles.searchInput,
@@ -311,6 +326,25 @@ export default function Admin() {
               bold
               styles={{
                 color: activeTab === 'users' ? themeColors.primaryForeground : themeColors.text,
+              }}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setActiveTab('driver_requests')}
+            activeOpacity={0.7}
+            style={[
+              styles.tab,
+              activeTab === 'driver_requests' && {
+                backgroundColor: themeColors.primary,
+              },
+            ]}
+          >
+            <AppText
+              i18nKey="admin.driverRequests"
+              size="small"
+              bold
+              styles={{
+                color: activeTab === 'driver_requests' ? themeColors.primaryForeground : themeColors.text,
               }}
             />
           </TouchableOpacity>
@@ -655,6 +689,84 @@ export default function Admin() {
                             bold
                             styles={{ color: themeColors.primary }}
                           />
+                        </View>
+                      </BlurView>
+                    </Pressable>
+                  ))
+                )}
+              </View>
+            )}
+
+            {/* Driver Requests Tab */}
+            {activeTab === 'driver_requests' && (
+              <View>
+                {filteredRequests.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <IconApp
+                      pack="FI"
+                      name="users"
+                      size={64}
+                      color={themeColors.gray}
+                      styles={{ marginBottom: 16 }}
+                    />
+                    <AppText
+                      i18nKey="admin.noUsers"
+                      size="medium"
+                      styles={{ color: themeColors.gray, textAlign: 'center' }}
+                    />
+                  </View>
+                ) : (
+                  filteredRequests.map((user) => (
+                    <Pressable
+                      key={user._id}
+                      onPress={() => {
+                        router.push({ pathname: '/User', params: { userId: user._id } } as any);
+                      }}
+                      style={({ pressed }) => [
+                        styles.card,
+                        {
+                          backgroundColor: theme === 'light' 
+                            ? 'rgba(255, 255, 255, 0.95)' 
+                            : 'rgba(0, 0, 0, 0.85)',
+                          borderColor: theme === 'light' ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.2)',
+                          opacity: pressed ? 0.7 : 1,
+                        },
+                      ]}
+                    >
+                      <BlurView intensity={80} tint={theme === 'light' ? 'light' : 'dark'} style={styles.cardContent}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <View style={{ flex: 1 }}>
+                            <AppText
+                              text={user.names}
+                              size="medium"
+                              bold
+                              styles={{ color: themeColors.text, marginBottom: 4 }}
+                            />
+                            <AppText
+                              text={user.user_email}
+                              size="small"
+                              styles={{ color: themeColors.gray, marginBottom: 4 }}
+                            />
+                            {user.phone_numbers && user.phone_numbers.length > 0 && (
+                              <AppText
+                                text={user.phone_numbers.join(', ')}
+                                size="small"
+                                styles={{ color: themeColors.gray, marginBottom: 8 }}
+                              />
+                            )}
+                            <View style={[
+                              styles.accountTypeBadge,
+                              { backgroundColor: '#FF9500' + '15', marginTop: 4 },
+                            ]}>
+                              <AppText
+                                text={t('becomeDriver.pendingApproval')}
+                                size="small"
+                                bold
+                                styles={{ color: '#FF9500' }}
+                              />
+                            </View>
+                          </View>
+                          <IconApp pack="FI" name="chevron-right" size={20} color={themeColors.gray} />
                         </View>
                       </BlurView>
                     </Pressable>
